@@ -319,8 +319,8 @@
       const g = el('g', null, layers.actors);
 
       const ring = el('g', { opacity: 0 }, g);
-      el('circle', { cy: 0.16, r: 0.28, fill: 'url(#ownGlow)' }, ring);
-      el('ellipse', { cy: 0.2, rx: 0.27, ry: 0.1, fill: 'none', stroke: '#FFC42E', 'stroke-width': 0.055 }, ring);
+      el('circle', { cy: 0.2, r: 0.3, fill: 'url(#ownGlow)' }, ring);
+      el('ellipse', { cy: 0.24, rx: 0.3, ry: 0.11, fill: 'none', stroke: '#FFC42E', 'stroke-width': 0.06 }, ring);
       const teamMark = el('g', { opacity: 0 }, g);
       el('circle', { cy: 0.3, r: 0.3, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 0.06 }, teamMark);
 
@@ -333,7 +333,7 @@
       /* 泡泡（被困住時才顯示） */
       const bubble = el('g', { opacity: 0 }, g);
       const shell = el('g', null, bubble);
-      el('circle', { cy: -0.01, r: 0.38, fill: 'url(#bubbleGrad)', stroke: '#7FD8F5', 'stroke-width': 0.032 }, shell);
+      el('circle', { cy: -0.01, r: 0.44, fill: 'url(#bubbleGrad)', stroke: '#7FD8F5', 'stroke-width': 0.035 }, shell);
       el('ellipse', { cx: -0.14, cy: -0.18, rx: 0.085, ry: 0.05, fill: '#FFFFFF', opacity: 0.85, transform: 'rotate(-30)' }, shell);
       el('ellipse', { cx: 0.13, cy: 0.12, rx: 0.05, ry: 0.03, fill: '#FFFFFF', opacity: 0.5, transform: 'rotate(-30)' }, shell);
       const fizz = [];
@@ -344,7 +344,7 @@
       bubble._fizz = fizz;
 
       const label = el('text', {
-        y: -0.38, 'text-anchor': 'middle', 'font-size': 0.17,
+        y: -0.42, 'text-anchor': 'middle', 'font-size': 0.16,
         fill: '#3B3B44', stroke: '#FFFFFF', 'stroke-width': 0.08,
         'paint-order': 'stroke', 'font-weight': '700'
       }, g);
@@ -395,7 +395,7 @@
           const parts = node._parts;
 
           /* 走路時上下輕輕彈一下 */
-          const SCALE = 0.72;  /* 視覺縮到一格以內，才不會蓋到旁邊的格子 */
+          const SCALE = 0.88;  /* 盡量大，但腳下光環與影子都收在自己的格子裡 */
           const walking = p.moving && p.state === 'alive';
           const swing = walking ? Math.sin(state.time * 11) : 0;
           const bob = walking ? Math.abs(Math.sin(state.time * 11)) * 0.045 : 0;

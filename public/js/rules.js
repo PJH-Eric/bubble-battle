@@ -21,7 +21,7 @@
 
   const C = {
     STEP: 1 / 60,
-    PLAYER_R: 0.32,        /* 角色半徑（格），比半格小才擠得過轉角 */
+    PLAYER_R: 0.30,        /* 角色半徑（格），比半格小才擠得過轉角 */
     BASE_SPEED: 3.2,       /* 格／秒 */
     SPEED_STEP: 0.35,
     MAX_SPEED: 6.0,
@@ -181,41 +181,44 @@
    * 撞牆時如果把身體對齊到通道中心就過得去，就自動幫玩家對齊——這是原版走位手感的關鍵。
    */
   function moveAxis(s, p, axis, dir, dist) {
+    const PROBE = 0.03;   /* 對齊之後往前探一點點，確認那個方向真的通 */
+
     if (axis === 'x') {
       if (canStand(s, p, p.x + dir * dist, p.y)) {
         p.x += dir * dist;
+        /* 邊走邊往通道中心靠，下一個轉彎才轉得過去 */
         const cy = Math.floor(p.y) + 0.5;
         const dy = cy - p.y;
         if (Math.abs(dy) > 1e-4) {
-          const step = Math.min(dist * 0.7, Math.abs(dy));
+          const step = Math.min(dist * 0.8, Math.abs(dy));
           if (canStand(s, p, p.x, p.y + Math.sign(dy) * step)) p.y += Math.sign(dy) * step;
         }
         return true;
       }
+      /* 前面卡住 → 只要對齊之後那個方向會通，就先把身體滑進通道（不要求同一幀就前進） */
       const cy = Math.floor(p.y) + 0.5;
       const dy = cy - p.y;
-      if (Math.abs(dy) > 1e-4 && canStand(s, p, p.x + dir * dist, cy)) {
-        const step = Math.min(dist, Math.abs(dy));
-        p.y += Math.sign(dy) * step;
+      if (Math.abs(dy) > 1e-4 && canStand(s, p, p.x + dir * PROBE, cy)) {
+        p.y += Math.sign(dy) * Math.min(dist, Math.abs(dy));
         return true;
       }
       return false;
     }
+
     if (canStand(s, p, p.x, p.y + dir * dist)) {
       p.y += dir * dist;
       const cx = Math.floor(p.x) + 0.5;
       const dx = cx - p.x;
       if (Math.abs(dx) > 1e-4) {
-        const step = Math.min(dist * 0.7, Math.abs(dx));
+        const step = Math.min(dist * 0.8, Math.abs(dx));
         if (canStand(s, p, p.x + Math.sign(dx) * step, p.y)) p.x += Math.sign(dx) * step;
       }
       return true;
     }
     const cx = Math.floor(p.x) + 0.5;
     const dx = cx - p.x;
-    if (Math.abs(dx) > 1e-4 && canStand(s, p, cx, p.y + dir * dist)) {
-      const step = Math.min(dist, Math.abs(dx));
-      p.x += Math.sign(dx) * step;
+    if (Math.abs(dx) > 1e-4 && canStand(s, p, cx, p.y + dir * PROBE)) {
+      p.x += Math.sign(dx) * Math.min(dist, Math.abs(dx));
       return true;
     }
     return false;
@@ -476,15 +479,19 @@
       if (raw.drop) placeBomb(s, p);
     }
 
-    /* 2. 水球能不能再被踩：離開了就變成牆 */
-    for (const b of s.bombs) {
-      if (!b.pass.length) continue;
-      b.pass = b.pass.filter(pid => {
-        const p = s.players.find(q => q.id === pid);
-        if (!p || p.state === 'dead') return false;
-        const r = C.PLAYER_R;
-        return b.c <= p.x + r && b.c + 1 >= p.x - r && b.r <= p.y + r && b.r + 1 >= p.y - r;
-      });
+    /* 2. 水球能不能被踩過去：身體還壓在上面就可以，離開了就變成牆。
+     *    這樣被踢過來的水球或別人放在你腳下的水球都不會把你永遠卡住。 */
+    {
+      const R = C.PLAYER_R, EPS = 0.02;
+      for (const b of s.bombs) {
+        const inside = [];
+        for (const p of s.players) {
+          if (p.state === 'dead') continue;
+          if (p.x + R > b.c + EPS && p.x - R < b.c + 1 - EPS
+            && p.y + R > b.r + EPS && p.y - R < b.r + 1 - EPS) inside.push(p.id);
+        }
+        b.pass = inside;
+      }
     }
 
     /* 2.5 被踢出去的水球會一直滑到撞牆、撞人或撞到別顆水球 */

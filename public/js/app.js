@@ -112,13 +112,23 @@
     const box = $('#ai-levels');
     box.innerHTML = '';
     aiLevels.forEach((lv, i) => {
+      const ch = aiCharFor(i);
       const label = document.createElement('label');
-      label.textContent = aiCharFor(i).name + ' ';
+
+      const avatar = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      avatar.setAttribute('class', 'who-svg');
+      Render.sprite(avatar, ch.id);
+
+      const name = document.createElement('span');
+      name.className = 'who-name';
+      name.textContent = ch.name;
+
       const sel = document.createElement('select');
       for (const key of ['baby', 'easy', 'normal', 'hard']) sel.appendChild(new Option(LEVEL_LABEL[key], key));
       sel.value = lv;
       sel.addEventListener('change', () => { aiLevels[i] = sel.value; });
-      label.appendChild(sel);
+
+      label.append(avatar, name, sel);
       box.appendChild(label);
     });
   }

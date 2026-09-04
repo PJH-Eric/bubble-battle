@@ -74,10 +74,55 @@ html, body {
 .field { display: block; margin: 0 0 16px; }
 .field > span { display: block; font-weight: 700; font-size: .92rem; margin-bottom: 6px; }
 input[type=text], select {
-  font: inherit; width: 100%; padding: .6em .8em;
-  border: 2px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink);
+  font: inherit; width: 100%; padding: .62em .9em;
+  border: 2px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink);
+  transition: border-color .15s, box-shadow .15s;
 }
-input[type=range] { width: 100%; accent-color: var(--blue); }
+input[type=text]:focus, select:focus {
+  outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(53,169,220,.16);
+}
+
+/* 下拉選單：拿掉系統樣式，換成圓潤的自繪箭頭 */
+select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  padding-right: 2.6em; cursor: pointer; font-weight: 600;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 9.5l6 6 6-6' fill='none' stroke='%2335A9DC' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right .7em center;
+  background-size: 1.15em;
+  background-color: #F7FCFE;
+}
+select:hover { border-color: #A9DCF0; background-color: #EFF9FD; }
+select::-ms-expand { display: none; }
+select option { font-weight: 600; color: var(--ink); background: #fff; padding: .4em; }
+/* 滑桿：也換成圓潤的自繪樣式 */
+input[type=range] {
+  width: 100%; height: 26px; background: transparent;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height: 10px; border-radius: 999px;
+  background: linear-gradient(90deg, #9FDDF3 0%, #D8EEF7 100%);
+  border: 2px solid var(--line);
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 26px; height: 26px; margin-top: -10px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--blue);
+  box-shadow: 0 2px 6px rgba(31,135,182,.3);
+}
+input[type=range]::-moz-range-track {
+  height: 10px; border-radius: 999px;
+  background: linear-gradient(90deg, #9FDDF3 0%, #D8EEF7 100%);
+  border: 2px solid var(--line);
+}
+input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--blue);
+  box-shadow: 0 2px 6px rgba(31,135,182,.3);
+}
+input[type=range]:focus { outline: none; }
+input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(53,169,220,.2); }
 .row-btns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
 
 /* ---------- 首頁 ---------- */
@@ -99,9 +144,18 @@ input[type=range] { width: 100%; accent-color: var(--blue); }
 }
 .picker button.on { border-color: var(--sun); box-shadow: 0 0 0 3px #FFEDC0; }
 .picker svg { width: 100%; height: 100%; }
-.ai-levels { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.ai-levels label { display: flex; align-items: center; gap: 4px; font-size: .8rem; background: #F3FAFD; border: 2px solid var(--line); border-radius: 12px; padding: 4px 8px; }
-.ai-levels select { width: auto; padding: .2em .4em; font-size: .8rem; border-width: 1px; }
+.ai-levels { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ai-levels label {
+  display: flex; align-items: center; gap: 10px; font-size: .9rem; font-weight: 700;
+  background: linear-gradient(180deg, #FBFEFF 0%, #F1FAFE 100%);
+  border: 2px solid var(--line); border-radius: 16px; padding: 6px 10px 6px 6px;
+}
+.ai-levels .who-svg { width: 40px; height: 44px; flex: none; }
+.ai-levels .who-name { flex: 1; }
+.ai-levels select {
+  width: auto; min-width: 7.2em; padding: .4em 2.2em .4em .8em;
+  font-size: .85rem; background-size: 1em; background-position: right .55em center;
+}
 
 /* ---------- 對戰畫面 ---------- */
 
