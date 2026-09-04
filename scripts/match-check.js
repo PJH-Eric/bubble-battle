@@ -41,7 +41,7 @@ function check(cond, msg) {
   if (!cond) fail++;
 }
 
-console.log('\n整局能不能跑完（六張地圖各一場，四個普通電腦）');
+console.log('\n整局能不能跑完（每張地圖各一場，四個普通電腦）');
 for (const m of Maps.MAPS) {
   const r = play(['normal', 'normal', 'normal', 'normal'], 'map-' + m.id, m.id);
   check(r.finished && !r.hung, '「' + m.name + '」 ' + r.time.toFixed(0) + ' 秒結束（' + r.reason + '）破箱 ' + r.boxes.join('/'));

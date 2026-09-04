@@ -88,6 +88,29 @@ group('地圖');
   }
   ok(g.spawns.every(s => seen.has(s.c + ':' + s.r)), '8 個出生點彼此連通（忽略軟箱）');
 
+  /* 每張地圖、兩種尺寸、滿人都要走得通（忽略軟箱，軟箱炸得掉） */
+  const reach = (g, cols, rows) => {
+    const seen = new Set(); const q = [[g.spawns[0].c, g.spawns[0].r]]; seen.add(q[0].join(':'));
+    while (q.length) {
+      const [c, r] = q.shift();
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nc = c + dc, nr = r + dr, k = nc + ':' + nr;
+        if (seen.has(k) || nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
+        if (g.tiles[nr * cols + nc] === Maps.HARD) continue;
+        seen.add(k); q.push([nc, nr]);
+      }
+    }
+    return seen;
+  };
+  for (const [cols, rows] of [[15, 13], [17, 15]]) {
+    let allOk = true;
+    for (const m of Maps.MAPS) {
+      const gm = Maps.build({ cols, rows, mapId: m.id, seed: 'v', playerCount: 8 });
+      const seen = reach(gm, cols, rows);
+      if (!gm.spawns.every(s => seen.has(s.c + ':' + s.r))) allOk = false;
+    }
+    ok(allOk, '每張地圖在 ' + cols + 'x' + rows + ' 的 8 個出生點都連通（忽略軟箱）');
+  }
   const a = Maps.build({ cols: 15, rows: 13, random: true, seed: 'same', playerCount: 4 });
   const b = Maps.build({ cols: 15, rows: 13, random: true, seed: 'same', playerCount: 4 });
   ok(a.tiles.join('') === b.tiles.join(''), '同一個種子生出同一張隨機地圖');

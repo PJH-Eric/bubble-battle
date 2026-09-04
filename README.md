@@ -85,7 +85,7 @@ npm start        # http://localhost:3050
 ```
 public/js/rules.js      ★ 規則核心（純函式，之後線上模式由伺服器跑同一支）
 public/js/ai.js           四段電腦對手，產生和真人一樣格式的輸入
-public/js/maps.js         6 張固定地圖 + 隨機生成
+public/js/maps.js        10 張固定地圖 + 隨機生成
 public/js/rng.js          可注入種子的亂數（重播、測試、同步都靠它）
 public/js/render.js       手繪向量 SVG 繪圖
 public/js/input.js        鍵盤／虛擬搖桿／全螢幕滑動

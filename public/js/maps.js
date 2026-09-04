@@ -1,4 +1,4 @@
-/* ===== maps.js — 地圖：6 張手設固定地形 + 隨機生成 =====
+/* ===== maps.js — 地圖：10 張手設固定地形 + 隨機生成 =====
  * 全部純地形，不做傳送門／輸送帶／水池等機關。
  * 格子值：0 空地、1 硬塊（炸不掉）、2 軟箱（會被炸掉，可能掉道具）
  */
@@ -61,6 +61,48 @@
       id: 'hive', name: '蜂巢陣', desc: '交錯柱子，處處都是死角',
       density: 0.72,
       extra(c, r) { return c % 2 === 1 && r % 2 === 0 && (c + r) % 4 === 1; }
+    },
+    {
+      id: 'serpent', name: '蛇形長廊', desc: '長牆左右錯開，只能繞著跑',
+      density: 0.60,
+      extra(c, r, cols, rows) {
+        /* 缺口挑奇數列，才不會壓在棋盤柱上變成沒開 */
+        const gapR = 2 * Math.floor((rows - 1) / 4) + 1;
+        if (c % 4 === 2) return r >= 2 && r !== gapR;                    /* 上面與中段留缺口 */
+        if (c % 4 === 0 && c > 0 && c < cols - 1) {
+          return r <= rows - 3 && r !== gapR + 2;                        /* 下面與中段留缺口 */
+        }
+        return false;
+      }
+    },
+    {
+      id: 'quad', name: '四合院', desc: '十字大牆隔成四間，只有小門相通',
+      density: 0.66,
+      extra(c, r, cols, rows) {
+        const midC = (cols - 1) / 2, midR = (rows - 1) / 2;
+        /* 門開在奇數格，才不會剛好撞上棋盤柱 */
+        if (c === midC) return r !== 3 && r !== rows - 4;   /* 上下兩道門 */
+        if (r === midR) return c !== 3 && c !== cols - 4;   /* 左右兩道門 */
+        return false;
+      }
+    },
+    {
+      id: 'diag', name: '大 X 廣場', desc: '兩道斜牆交叉，中央是空地',
+      density: 0.64,
+      extra(c, r, cols, rows) {
+        const dc = Math.abs(c - (cols - 1) / 2), dr = Math.abs(r - (rows - 1) / 2);
+        return dc === dr && dc >= 2;                        /* 中央留空，斜臂直達四角 */
+      }
+    },
+    {
+      id: 'blocks', name: '石塊大廳', desc: '沒有棋盤柱，改成大石塊與寬走道',
+      density: 0.52,
+      remove() { return true; },                        /* 整片棋盤柱都拿掉 */
+      extra(c, r, cols, rows) {
+        const bc = (c - 2) % 5, br = (r - 2) % 5;       /* 每 5 格擺一個 2x2 石塊 */
+        return bc >= 0 && bc <= 1 && br >= 0 && br <= 1
+          && c < cols - 2 && r < rows - 2;
+      }
     }
   ];
 
@@ -121,7 +163,7 @@
       for (let c = 0; c < cols; c++) {
         let v = EMPTY;
         if (c === 0 || r === 0 || c === cols - 1 || r === rows - 1) v = HARD;
-        else if (c % 2 === 0 && r % 2 === 0) v = def.remove && def.remove(c, r) ? EMPTY : HARD;
+        else if (c % 2 === 0 && r % 2 === 0 && !(def.remove && def.remove(c, r))) v = HARD;
         else if (def.extra && def.extra(c, r, cols, rows)) v = HARD;
         tiles[idx(cols, c, r)] = v;
       }
