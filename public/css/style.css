@@ -1,0 +1,195 @@
+/* ===== 泡泡大作戰 — 可愛、圓潤、明亮 ===== */
+:root {
+  --sky: #BFE7F5;
+  --sky-2: #E7F7FD;
+  --ink: #33424F;
+  --ink-soft: #6A7C89;
+  --card: #FFFFFF;
+  --line: #D8E9F1;
+  --blue: #35A9DC;
+  --blue-dark: #1F87B6;
+  --sun: #FFC94A;
+  --pink: #FF9DAE;
+  --green: #62C98D;
+  --danger: #E8737F;
+  --radius: 18px;
+  --shadow: 0 6px 0 rgba(31, 135, 182, .18), 0 10px 22px rgba(31, 135, 182, .16);
+}
+
+* { box-sizing: border-box; }
+
+/* hidden 一定要贏過下面那些有指定 display 的規則（設定彈窗、倒數） */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--sky-2) 0%, var(--sky) 100%);
+  overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen { display: none; height: 100%; }
+.screen.active { display: flex; }
+
+/* ---------- 通用元件 ---------- */
+
+.big-btn {
+  font: inherit; font-weight: 800; font-size: 1.05rem;
+  color: #fff; background: var(--blue);
+  border: none; border-radius: var(--radius);
+  padding: .85em 1.6em; cursor: pointer;
+  box-shadow: 0 5px 0 var(--blue-dark);
+  transition: transform .08s, box-shadow .08s;
+}
+.big-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--blue-dark); }
+.big-btn.primary { background: var(--sun); box-shadow: 0 5px 0 #D9A521; color: #5A4207; }
+.big-btn.primary:active { box-shadow: 0 1px 0 #D9A521; }
+.big-btn.ghost { background: #fff; color: var(--blue-dark); box-shadow: 0 5px 0 var(--line); }
+.big-btn.ghost:active { box-shadow: 0 1px 0 var(--line); }
+
+.mini-btn {
+  font: inherit; font-size: .85rem; font-weight: 700;
+  color: var(--blue-dark); background: #fff;
+  border: 2px solid var(--line); border-radius: 12px;
+  padding: .5em 1em; cursor: pointer;
+}
+.mini-btn.danger { color: var(--danger); border-color: #F3D3D6; }
+
+.icon-btn {
+  position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+  z-index: 40; width: 46px; height: 46px; border-radius: 50%;
+  border: none; background: #fff; box-shadow: var(--shadow); cursor: pointer;
+  display: grid; place-items: center;
+}
+.icon-btn svg { width: 26px; height: 26px; fill: var(--blue-dark); }
+
+.panel {
+  background: var(--card); border-radius: 26px; box-shadow: var(--shadow);
+  padding: 24px; width: min(560px, 100%); margin: auto;
+  max-height: 100%; overflow: auto;
+}
+.field { display: block; margin: 0 0 16px; }
+.field > span { display: block; font-weight: 700; font-size: .92rem; margin-bottom: 6px; }
+input[type=text], select {
+  font: inherit; width: 100%; padding: .6em .8em;
+  border: 2px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink);
+}
+input[type=range] { width: 100%; accent-color: var(--blue); }
+.row-btns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+
+/* ---------- 首頁 ---------- */
+
+#screen-home { flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 20px; text-align: center; }
+.home-art { width: min(420px, 92vw); }
+.home-art svg { width: 100%; height: auto; }
+.title { font-size: clamp(2rem, 7vw, 3rem); margin: 0; letter-spacing: .06em; color: var(--blue-dark); text-shadow: 0 3px 0 #fff; }
+.subtitle { margin: 2px 0 18px; color: var(--ink-soft); font-size: .95rem; }
+.home-buttons { display: flex; flex-direction: column; gap: 12px; width: min(320px, 86vw); }
+.foot-note { color: var(--ink-soft); font-size: .82rem; margin-top: 16px; }
+
+/* ---------- 設定畫面的挑選器 ---------- */
+
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.picker button {
+  width: 62px; height: 62px; border-radius: 16px; cursor: pointer;
+  border: 3px solid var(--line); background: #fff; padding: 2px;
+}
+.picker button.on { border-color: var(--sun); box-shadow: 0 0 0 3px #FFEDC0; }
+.picker svg { width: 100%; height: 100%; }
+.ai-levels { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ai-levels label { display: flex; align-items: center; gap: 4px; font-size: .8rem; background: #F3FAFD; border: 2px solid var(--line); border-radius: 12px; padding: 4px 8px; }
+.ai-levels select { width: auto; padding: .2em .4em; font-size: .8rem; border-width: 1px; }
+
+/* ---------- 對戰畫面 ---------- */
+
+.screen.game { display: none; }
+.screen.game.active { display: grid; grid-template-columns: 232px 1fr; height: 100%; }
+
+.summary {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; padding-left: max(12px, env(safe-area-inset-left));
+  background: rgba(255, 255, 255, .78); backdrop-filter: blur(6px);
+  border-right: 2px solid var(--line); overflow: auto;
+}
+.sum-top { display: flex; align-items: baseline; justify-content: space-between; }
+.clock { font-size: 1.5rem; font-weight: 800; color: var(--blue-dark); font-variant-numeric: tabular-nums; }
+.clock.rising { color: var(--danger); }
+.map-name { font-size: .75rem; color: var(--ink-soft); }
+.sum-players { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.sum-players li { display: flex; align-items: center; gap: 6px; font-size: .82rem; padding: 4px 6px; border-radius: 10px; background: #fff; }
+.sum-players li.me { outline: 2px solid var(--sun); }
+.sum-players li.out { opacity: .45; text-decoration: line-through; }
+.sum-players li.trapped { background: #E4F6FE; }
+.sum-players .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; border: 2px solid rgba(0,0,0,.15); }
+.sum-players .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sum-players .tag { font-size: .68rem; color: var(--ink-soft); }
+.sum-mine { font-size: .8rem; background: #fff; border-radius: 12px; padding: 8px; line-height: 1.7; }
+.sum-mine b { color: var(--blue-dark); }
+.sum-flash { min-height: 1.2em; font-size: .8rem; color: var(--blue-dark); font-weight: 700; }
+
+.board-wrap { position: relative; display: grid; place-items: center; padding: 8px; min-height: 0; min-width: 0; }
+#board { width: 100%; height: 100%; }
+
+.countdown { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.35); }
+.countdown span { font-size: clamp(4rem, 18vw, 9rem); font-weight: 900; color: #fff; text-shadow: 0 6px 0 var(--blue-dark); }
+
+.rotate-tip {
+  position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%);
+  background: #fff; border-radius: 16px; box-shadow: var(--shadow);
+  padding: 12px 16px; text-align: center; font-size: .9rem;
+}
+.rotate-tip p { margin: 0 0 8px; }
+
+/* ---------- 觸控 ---------- */
+
+.touch { position: fixed; inset: auto 0 0 0; height: 0; pointer-events: none; z-index: 30; }
+.stick-wrap { position: fixed; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); pointer-events: auto; }
+.stick { width: 128px; height: 128px; border-radius: 50%; background: rgba(255,255,255,.5); border: 3px solid rgba(53,169,220,.35); display: grid; place-items: center; touch-action: none; }
+.knob { width: 56px; height: 56px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.18); }
+.drop-btn { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); width: 92px; height: 92px; border-radius: 50%; border: none; background: rgba(255,255,255,.55); pointer-events: auto; cursor: pointer; padding: 10px; touch-action: none; }
+.drop-btn svg { width: 100%; height: 100%; }
+body.no-touch .touch { display: none; }
+
+/* ---------- 結算與說明 ---------- */
+
+#screen-result, #screen-help, #screen-setup { padding: 16px; }
+.result { text-align: center; }
+.winner-art svg { width: 168px; height: 200px; }
+.result-line { color: var(--ink-soft); }
+#result-title { font-size: 1.8rem; margin: 6px 0; color: var(--blue-dark); }
+.help h3 { margin: 18px 0 6px; font-size: 1rem; color: var(--blue-dark); }
+.help p { margin: 0 0 6px; font-size: .92rem; line-height: 1.7; }
+.help .icons { display: flex; flex-wrap: wrap; gap: 10px; }
+.help .icons figure { margin: 0; width: 84px; text-align: center; font-size: .72rem; color: var(--ink-soft); }
+.help .icons svg { width: 46px; height: 46px; }
+
+/* ---------- 設定彈窗 ---------- */
+
+.modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(31,64,84,.35); padding: 16px; }
+.modal-card { background: #fff; border-radius: 24px; box-shadow: var(--shadow); padding: 22px; width: min(420px, 100%); max-height: 100%; overflow: auto; }
+.modal-card h2 { margin-top: 0; }
+.toggle { display: flex; align-items: center; gap: 8px; font-weight: 700; margin: 10px 0 2px; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--blue); }
+
+/* ---------- 窄版：Summary 收成上方狀態列 ---------- */
+
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  .screen.game.active { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .summary {
+    flex-direction: row; align-items: center; gap: 8px; overflow-x: auto;
+    border-right: none; border-bottom: 2px solid var(--line); padding: 6px 10px;
+  }
+  .sum-top { flex-direction: row; gap: 8px; flex: none; }
+  .clock { font-size: 1.1rem; }
+  .map-name { display: none; }
+  .sum-players { flex-direction: row; flex: 1; }
+  .sum-players li { font-size: .72rem; padding: 3px 5px; }
+  .sum-players .tag { display: none; }
+  .sum-mine { font-size: .72rem; padding: 4px 6px; white-space: nowrap; }
+  .sum-flash { display: none; }
+  #btn-quit { flex: none; }
+  .board-wrap { padding: 4px 4px 118px; align-items: start; }
+}
