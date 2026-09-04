@@ -528,6 +528,8 @@
   let online = null;
   let net = null;
   let roomView = null;
+  let lobbyRefreshPending = false;
+  let lobbyRefreshTimer = 0;
   let onlineBoardKey = '';
   let unread = 0;
   let chatOpen = false;
@@ -554,13 +556,24 @@
       el.textContent = text + (st.msg ? '（' + st.msg + '）' : '');
       el.className = 'conn ' + (st.state === 'online' ? 'ok' : st.state === 'offline' ? 'bad' : '');
     });
-    online.on('lobby', m => renderLobby(m.rooms));
+    online.on('lobby', m => {
+      renderLobby(m.rooms);
+      if (lobbyRefreshPending) finishLobbyRefresh('房間列表已更新');
+    });
     online.on('room', m => onRoom(m.room));
     online.on('snap', m => onSnap(m));
-    online.on('error', m => flash(m.msg));
+    online.on('error', m => {
+      if (lobbyRefreshPending) finishLobbyRefresh(m.msg || '更新房間列表失敗', 'error');
+      else flash(m.msg);
+    });
     online.on('notice', m => flash(m.msg));
     online.on('kicked', () => { roomView = null; flash('你被房主請出房間了'); backToLobby(); });
     online.on('left', () => { roomView = null; backToLobby(); });
+    online.on('closed', m => {
+      roomView = null;
+      backToLobby();
+      setLobbyRefreshStatus(m.msg || '房間已關閉，已返回大廳', 'error');
+    });
     return online;
   }
 
@@ -600,11 +613,40 @@
   }
 
   function refreshRoomList() {
+    lobbyRefreshPending = true;
+    const button = $('#btn-refresh-room');
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    setLobbyRefreshStatus('正在更新…');
+    clearTimeout(lobbyRefreshTimer);
+    lobbyRefreshTimer = setTimeout(() => {
+      if (lobbyRefreshPending) finishLobbyRefresh('更新逾時，請再試一次', 'error');
+    }, 4000);
+
     if (!online || !online.send({ t: 'lobby' })) {
-      flash('目前沒有連線，無法重新整理房間列表');
+      finishLobbyRefresh('目前沒有連線，請稍後再試', 'error');
       return;
     }
-    flash('房間列表已更新');
+  }
+
+  function setLobbyRefreshStatus(text, type) {
+    const status = $('#room-list-status');
+    if (!status) return;
+    status.textContent = text;
+    status.className = 'room-list-status' + (type ? ' ' + type : '');
+  }
+
+  function finishLobbyRefresh(text, type) {
+    lobbyRefreshPending = false;
+    clearTimeout(lobbyRefreshTimer);
+    lobbyRefreshTimer = 0;
+    const button = $('#btn-refresh-room');
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    setLobbyRefreshStatus(text, type);
+    setTimeout(() => {
+      if (!lobbyRefreshPending) setLobbyRefreshStatus('');
+    }, 2400);
   }
 
   function renderLobby(rooms) {

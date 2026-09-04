@@ -122,6 +122,21 @@ function pushLobby() {
   }
 }
 
+function flushClosedRooms(skipIds) {
+  const skipped = new Set(skipIds || []);
+  const closed = hub.consumeClosedRooms();
+  for (const item of closed) {
+    for (const id of item.memberIds) {
+      if (skipped.has(id)) continue;
+      const client = clients.get(id);
+      if (!client) continue;
+      client.roomId = null;
+      send(client, { t: 'closed', msg: item.reason });
+    }
+  }
+  return closed;
+}
+
 function enter(client, result, wantRole) {
   if (result.error) { fail(client, result.error); return; }
   const room = result.room;
@@ -177,24 +192,40 @@ function handle(client, msg) {
       return;
 
     case 'create':
-      if (roomId) hub.leave(roomId, client.id);
+      if (roomId) {
+        hub.leave(roomId, client.id);
+        flushClosedRooms([client.id]);
+        client.roomId = null;
+      }
       enter(client, hub.createRoom(me, msg));
       return;
 
     case 'join':
-      if (roomId && roomId !== msg.roomId) { hub.leave(roomId, client.id); client.roomId = null; }
+      if (roomId && roomId !== msg.roomId) {
+        hub.leave(roomId, client.id);
+        flushClosedRooms([client.id]);
+        client.roomId = null;
+      }
       enter(client, hub.join(msg.roomId, me, msg.role), msg.role);
       return;
 
     case 'quick':
-      if (roomId) hub.leave(roomId, client.id);
+      if (roomId) {
+        hub.leave(roomId, client.id);
+        flushClosedRooms([client.id]);
+        client.roomId = null;
+      }
       enter(client, hub.quickJoin(me));
       return;
 
     case 'invite:use': {
       const found = hub.resolveInvite(msg.token);
       if (found.error) { fail(client, found.error); return; }
-      if (roomId) hub.leave(roomId, client.id);
+      if (roomId) {
+        hub.leave(roomId, client.id);
+        flushClosedRooms([client.id]);
+        client.roomId = null;
+      }
       enter(client, hub.join(found.room.id, me, msg.role));
       return;
     }
@@ -207,7 +238,9 @@ function handle(client, msg) {
       hub.leave(roomId, client.id);
       client.roomId = null;
       send(client, { t: 'left' });
-      pushRoom(room);
+      const activeRoom = hub.get(roomId);
+      if (activeRoom) pushRoom(activeRoom);
+      flushClosedRooms([client.id]);
       pushLobby();
       return;
     }
@@ -240,9 +273,10 @@ function handle(client, msg) {
       if (victim) {
         victim.roomId = null;
         send(victim, { t: 'kicked' });
-        send(victim, { t: 'lobby', rooms: hub.listRooms() });
       }
-      pushRoom(room);
+      const activeRoom = hub.get(room.id);
+      if (activeRoom) pushRoom(activeRoom);
+      flushClosedRooms([msg.id]);
       pushLobby();
       break;
     }
@@ -255,7 +289,12 @@ function handle(client, msg) {
 
   function result(r) {
     if (r && r.error) fail(client, r.error);
-    else { pushRoom(room); pushLobby(); }
+    else {
+      const activeRoom = hub.get(room.id);
+      if (activeRoom) pushRoom(activeRoom);
+      const closed = flushClosedRooms();
+      if (activeRoom || closed.length) pushLobby();
+    }
   }
 }
 
@@ -288,7 +327,11 @@ ws.attach(server, {
     socket.on('close', () => {
       clients.delete(client.id);
       const touched = hub.markDisconnected(client.id);
-      for (const room of touched) pushRoom(room);
+      for (const room of touched) {
+        const activeRoom = hub.get(room.id);
+        if (activeRoom) pushRoom(activeRoom);
+      }
+      flushClosedRooms();
       pushLobby();
     });
   }
@@ -303,8 +346,12 @@ const prevTiles = new Map();
 setInterval(() => {
   tickCount++;
   const changed = hub.tick(dt);
-  for (const room of changed) pushRoom(room);
-  if (changed.length) pushLobby();
+  for (const room of changed) {
+    const activeRoom = hub.get(room.id);
+    if (activeRoom) pushRoom(activeRoom);
+  }
+  const closed = flushClosedRooms();
+  if (changed.length || closed.length) pushLobby();
 
   /* 把這個 tick 發生的事件先存起來，等下一次送快照時一起帶給前端（音效、提示用） */
   for (const room of hub.rooms.values()) {

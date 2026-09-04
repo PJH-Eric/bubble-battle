@@ -265,8 +265,13 @@ body.no-touch .touch { display: none; }
 .conn.bad { color: var(--danger); }
 .lobby-actions { justify-content: flex-start; margin: 14px 0 6px; }
 .room-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 8px; }
-.room-list-head h3 { margin: 0; font-size: .95rem; }
+.room-list-label { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.room-list-label h3 { margin: 0; font-size: .95rem; }
+.room-list-status { min-width: 0; color: var(--blue-dark); font-size: .75rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-list-status.error { color: var(--danger); }
+.room-list-status:empty { display: none; }
 .room-list-head .mini-btn { flex: none; }
+.mini-btn:disabled { opacity: .6; cursor: wait; }
 .room-list { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow: auto; padding: 2px; }
 .room-card {
   display: flex; align-items: center; gap: 10px; text-align: left;

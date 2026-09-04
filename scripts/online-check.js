@@ -81,6 +81,32 @@ console.log('\n邀請連結');
   for (const id of [...room.members.keys()]) hub.leave(room.id, id);
 }
 
+console.log('\n房間自動關閉');
+{
+  const { room } = hub.createRoom(P('c1', '房主'), {});
+  hub.join(room.id, P('c2', '觀戰者'), 'spectator');
+  hub.addAI(room.id, 'c1', 'normal');
+  const made = hub.makeInvite(room.id, 'c1');
+
+  hub.leave(room.id, 'c1');
+  ok(!hub.get(room.id), '最後一位真人離開後房間立即關閉');
+  const closed = typeof hub.consumeClosedRooms === 'function' ? hub.consumeClosedRooms() : [];
+  const notice = closed.find(item => item.id === room.id);
+  ok(!!notice && notice.memberIds.includes('c2'), '房間關閉會通知仍在房內的觀戰者');
+  eq(hub.resolveInvite(made.token).error, '這個邀請連結無效或已經被撤銷了', '房間關閉會一併撤銷邀請連結');
+}
+
+{
+  const { room } = hub.createRoom(P('c3', '甲'), {});
+  hub.join(room.id, P('c4', '乙'));
+  hub.markDisconnected('c3');
+  hub.markDisconnected('c4');
+  clock += CONST.RECONNECT_MS + 100;
+  hub.tick(1 / 30);
+  ok(!hub.get(room.id), '所有真人斷線逾時離場後房間立即關閉');
+  if (typeof hub.consumeClosedRooms === 'function') hub.consumeClosedRooms();
+}
+
 console.log('\n斷線與重連');
 {
   const { room } = hub.createRoom(P('d1', '甲'), {});
@@ -200,18 +226,28 @@ console.log('\n真的連上伺服器跑一輪');
 process.env.PORT = String(PORT);
 require('../server.js');
 
-const seen = { A: [], B: [] };
+const seen = { A: [], B: [], C: [], D: [] };
 setTimeout(() => {
   const a = tinyClient(PORT, m => seen.A.push(m));
   const b = tinyClient(PORT, m => seen.B.push(m));
+  const c = tinyClient(PORT, m => seen.C.push(m));
+  const d = tinyClient(PORT, m => seen.D.push(m));
 
   setTimeout(() => {
     a.send({ t: 'hello', name: '甲', char: 'cat' });
     b.send({ t: 'hello', name: '乙', char: 'dog' });
+    c.send({ t: 'hello', name: '丙', char: 'bear' });
+    d.send({ t: 'hello', name: '丁', char: 'rabbit' });
   }, 150);
 
   setTimeout(() => a.send({ t: 'create', name: '連線測試房', mapId: 'open' }), 350);
   setTimeout(() => b.send({ t: 'quick' }), 600);
+  setTimeout(() => c.send({ t: 'create', name: '自動關閉測試房', mapId: 'open' }), 700);
+  setTimeout(() => {
+    const room = seen.C.filter(m => m.t === 'room').pop();
+    if (room) d.send({ t: 'join', roomId: room.room.id, role: 'spectator' });
+  }, 1050);
+  setTimeout(() => c.send({ t: 'leave' }), 1400);
   setTimeout(() => {
     a.send({ t: 'ready', ready: true });
     b.send({ t: 'ready', ready: true });
@@ -237,8 +273,9 @@ setTimeout(() => {
     ok(!!full && full.tiles.length === full.cols * full.rows, '第一份快照含整張地圖');
     const moved = snapA[snapA.length - 1].players.find(p => p.id === welcome.id);
     ok(!!moved, '快照裡找得到自己');
+    ok(seen.D.some(m => m.t === 'closed'), '最後真人離開後觀戰者收到房間關閉通知');
 
-    a.end(); b.end();
+    a.end(); b.end(); c.end(); d.end();
     console.log('\n────────────────────────────');
     console.log(fail ? fail + ' 項未通過' : '全部通過');
     process.exit(fail ? 1 : 0);
