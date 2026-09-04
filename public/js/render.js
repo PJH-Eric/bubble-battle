@@ -229,7 +229,7 @@
 
     /* ---------- 道具 ---------- */
 
-    const GOOD = new Set(['bomb', 'power', 'shoe', 'needle', 'shield']);
+    const GOOD = new Set(['bomb', 'power', 'shoe', 'glove', 'needle', 'shield']);
 
     function itemNode(it) {
       const g = el('g', null, layers.items);
@@ -252,6 +252,9 @@
           break;
         case 'shoe':
           el('path', { d: 'M-0.18,0.04 L-0.02,0.04 L0.06,-0.12 L0.16,0.04 L0.18,0.14 L-0.18,0.14 Z', fill: '#57C08A' }, mark);
+          break;
+        case 'glove':
+          el('path', { d: 'M-0.13,0.16 v-0.2 q0-0.08 0.07,-0.08 t0.07,0.08 v-0.06 q0,-0.08 0.07,-0.08 t0.07,0.08 v0.26 q0,0.1 -0.1,0.1 h-0.11 q-0.07,0 -0.07,-0.1 Z', fill: '#F2A65A', stroke: '#C97F3A', 'stroke-width': 0.035, 'stroke-linejoin': 'round' }, mark);
           break;
         case 'needle':
           el('path', { d: 'M-0.14,0.16 L0.14,-0.16', stroke: '#8E7BD6', 'stroke-width': 0.09, 'stroke-linecap': 'round' }, mark);
@@ -355,11 +358,12 @@
       syncLayer(layers.bombs, state.bombs, b => b.id,
         () => bombNode(),
         (node, b) => {
-          node.setAttribute('transform', 'translate(' + (b.c + 0.5) + ',' + (b.r + 0.5) + ')');
-          /* 越接近爆炸跳得越快、越大 —— 這是唯一的預告 */
-          const left = Math.max(0, b.fuse);
-          const rate = 3 + (3 - Math.min(3, left)) * 3.2;
-          const pulse = 1 + Math.sin(state.time * rate * Math.PI) * (0.06 + (3 - Math.min(3, left)) * 0.03);
+          node.setAttribute('transform', 'translate(' + (b.px != null ? b.px : b.c + 0.5) + ',' + (b.py != null ? b.py : b.r + 0.5) + ')');
+          /* 一秒跳一次；越接近爆炸跳得越用力（頻率不變，幅度變大）——這是唯一的預告 */
+          const left = Math.max(0, Math.min(3, b.fuse));
+          const grow = (3 - left) / 3;                 /* 0 → 1 */
+          const beat = Math.sin(state.time * Math.PI * 2);
+          const pulse = 1 + beat * (0.05 + grow * 0.13);
           node._body.setAttribute('transform', 'scale(' + pulse.toFixed(3) + ')');
         });
 

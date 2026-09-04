@@ -43,13 +43,15 @@
     EFFECT_MINI: 8,
     EFFECT_REVERSE: 5,
     SHIELD_TIME: 3,
+    KICK_SPEED: 6.5,       /* 被踢的水球滑多快（格／秒） */
     DROP_RATE: 0.42        /* 軟箱掉道具的機率 */
   };
 
   const GOOD_ITEMS = [
-    { type: 'bomb', w: 26 },
-    { type: 'power', w: 26 },
-    { type: 'shoe', w: 18 },
+    { type: 'bomb', w: 25 },
+    { type: 'power', w: 25 },
+    { type: 'shoe', w: 17 },
+    { type: 'glove', w: 9 },
     { type: 'needle', w: 6 },
     { type: 'shield', w: 8 }
   ];
@@ -145,6 +147,7 @@
         speed: C.BASE_SPEED,
         bombsOut: 0,
         needle: false,
+        glove: false,
         effects: { turtle: 0, mini: 0, reverse: 0 },
         aliveTime: 0,
         stats: { boxes: 0, items: 0, trapped: 0, survived: 0, rescues: 0 }
@@ -254,12 +257,44 @@
       id: s.nextBombId++,
       owner: p.id,
       c: cell.c, r: cell.r,
+      px: cell.c + 0.5, py: cell.r + 0.5,
+      moveDir: null,
       fuse: C.FUSE,
       power: p.effects.mini > 0 ? 1 : p.power,
       pass
     });
     p.bombsOut++;
     s.events.push({ type: 'bomb', c: cell.c, r: cell.r, by: p.id });
+    return true;
+  }
+
+  /** 滑動中的水球下一格能不能過 */
+  function blockedForBomb(s, bomb, c, r) {
+    if (tileAt(s, c, r) !== EMPTY) return true;
+    for (const other of s.bombs) if (other !== bomb && other.c === c && other.r === r) return true;
+    for (const p of s.players) {
+      if (p.state === 'dead') continue;
+      const pc = cellOf(p);
+      if (pc.c === c && pc.r === r) return true;
+    }
+    return false;
+  }
+
+  /** 有手套的人撞到水球就把它踢出去 */
+  function tryKick(s, p, axis, dir) {
+    const cell = cellOf(p);
+    const c = axis === 'x' ? cell.c + dir : cell.c;
+    const r = axis === 'y' ? cell.r + dir : cell.r;
+    const b = bombAt(s, c, r);
+    if (!b || b.moveDir) return false;
+    if (b.pass.indexOf(p.id) !== -1) return false;   /* 站在上面的不能踢 */
+    const dx = axis === 'x' ? dir : 0;
+    const dy = axis === 'y' ? dir : 0;
+    /* 前面就是牆的話踢不動，也不要每幀都發一次音效 */
+    if (blockedForBomb(s, b, b.c + dx, b.r + dy)) return false;
+    b.moveDir = { dx, dy };
+    b.pass = [];
+    s.events.push({ type: 'kick', id: b.id, by: p.id });
     return true;
   }
 
@@ -329,6 +364,7 @@
       case 'power': p.power = Math.min(C.MAX_POWER, p.power + 1); break;
       case 'shoe': p.speed = Math.min(C.MAX_SPEED, p.speed + C.SPEED_STEP); break;
       case 'needle': p.needle = true; break;
+      case 'glove': p.glove = true; break;
       case 'shield': p.invuln = Math.max(p.invuln, C.SHIELD_TIME); break;
       case 'turtle': p.effects.turtle = C.EFFECT_TURTLE; break;
       case 'mini': p.effects.mini = C.EFFECT_MINI; break;
@@ -353,6 +389,7 @@
     const bag = [];
     for (let i = C.BASE_BOMBS; i < p.bombMax; i++) bag.push('bomb');
     for (let i = C.BASE_POWER; i < p.power; i++) bag.push('power');
+    if (p.glove) bag.push('glove');
     const shoes = Math.round((p.speed - C.BASE_SPEED) / C.SPEED_STEP);
     for (let i = 0; i < shoes; i++) bag.push('shoe');
     if (p.needle) bag.push('needle');
@@ -436,9 +473,11 @@
         const dir = axis === 'x' ? dx : dy;
         const speed = p.speed * (p.effects.turtle > 0 ? 0.6 : 1);
         const moved = moveAxis(s, p, axis, dir, speed * dt);
+        if (!moved && p.glove) tryKick(s, p, axis, dir);
         if (!moved && dx !== 0 && dy !== 0) {
           const other = axis === 'x' ? 'y' : 'x';
-          moveAxis(s, p, other, other === 'x' ? dx : dy, speed * dt);
+          const moved2 = moveAxis(s, p, other, other === 'x' ? dx : dy, speed * dt);
+          if (!moved2 && p.glove) tryKick(s, p, other, other === 'x' ? dx : dy);
         }
         p.dir = axis === 'x' ? (dir > 0 ? 'right' : 'left') : (dir > 0 ? 'down' : 'up');
         p.moving = true;
@@ -456,6 +495,26 @@
         const r = C.PLAYER_R;
         return b.c <= p.x + r && b.c + 1 >= p.x - r && b.r <= p.y + r && b.r + 1 >= p.y - r;
       });
+    }
+
+    /* 2.5 被踢出去的水球會一直滑到撞牆、撞人或撞到別顆水球 */
+    for (const b of s.bombs) {
+      if (!b.moveDir) continue;
+      const dist = C.KICK_SPEED * dt;
+      const nx = b.px + b.moveDir.dx * dist;
+      const ny = b.py + b.moveDir.dy * dist;
+      const aheadC = Math.floor(nx + b.moveDir.dx * 0.5);
+      const aheadR = Math.floor(ny + b.moveDir.dy * 0.5);
+      if (blockedForBomb(s, b, aheadC, aheadR)) {
+        b.px = b.c + 0.5;
+        b.py = b.r + 0.5;
+        b.moveDir = null;
+        s.events.push({ type: 'kick-stop', id: b.id, c: b.c, r: b.r });
+      } else {
+        b.px = nx; b.py = ny;
+        b.c = Math.floor(b.px);
+        b.r = Math.floor(b.py);
+      }
     }
 
     /* 3. 引信 */
