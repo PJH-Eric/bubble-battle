@@ -154,12 +154,14 @@ function handle(client, msg) {
         clients.set(want, client);
       }
       send(client, { t: 'welcome', id: client.id });
-      /* 如果還在某個房間的名單裡，直接接回去 */
+      /* 如果還在某個房間的名單裡，直接接回去（順便同步新的暱稱） */
       for (const room of hub.rooms.values()) {
         const m = room.members.get(client.id);
         if (!m) continue;
         m.connected = true;
         m.disconnectedAt = 0;
+        m.name = client.name;
+        m.char = client.char;
         client.roomId = room.id;
         client.needFull = true;
         hub.systemChat(room, m.name + ' 回來了');

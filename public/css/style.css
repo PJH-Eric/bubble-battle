@@ -244,8 +244,10 @@ body.no-touch .touch { display: none; }
 /* ---------- 大廳 ---------- */
 
 #screen-lobby, #screen-room { padding: 16px; }
-.lobby-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.lobby-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .lobby-head h2 { margin: 0; }
+.lobby-name { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; }
+.lobby-name input { width: 7em; padding: .35em .6em; font-size: .85rem; }
 .conn { font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
 .conn.ok { color: var(--green); }
 .conn.bad { color: var(--danger); }

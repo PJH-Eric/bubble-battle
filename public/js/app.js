@@ -55,6 +55,12 @@
 
   function buildSetup() {
     $('#in-nickname').value = store.nickname;
+    $('#in-nickname').oninput = () => {
+      store.nickname = $('#in-nickname').value.trim();
+      Store.save(store);
+      const lobbyBox = $('#lobby-nickname');
+      if (lobbyBox) lobbyBox.value = store.nickname;
+    };
 
     const picker = $('#char-picker');
     picker.innerHTML = '';
@@ -528,6 +534,7 @@
 
   function goOnline(inviteToken) {
     ensureOnline();
+    $('#lobby-nickname').value = store.nickname;
     const server = Config.serverUrl;
     if (!server) {
       alert('這個頁面沒有可以連的伺服器。請用「啟動遊戲.bat」開起來，或在網址加上 ?server=伺服器網址。');
@@ -887,6 +894,17 @@
   }
 
   function bindOnline() {
+    $('#lobby-nickname').addEventListener('input', () => {
+      store.nickname = $('#lobby-nickname').value.trim();
+      Store.save(store);
+      const box = $('#in-nickname');
+      if (box) box.value = store.nickname;
+      if (online) {
+        online.identity.name = store.nickname || '玩家';
+        online.send({ t: 'hello', id: online.id, name: online.identity.name, char: store.char });
+      }
+    });
+
     $('#btn-quick').addEventListener('click', () => online && online.send({ t: 'quick' }));
     $('#btn-create').addEventListener('click', () => online && online.send({
       t: 'create', name: (store.nickname || '玩家') + ' 的房間',
