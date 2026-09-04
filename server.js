@@ -16,7 +16,7 @@ const ws = require('./lib/ws.js');
 const { createHub } = require('./lib/rooms.js');
 const Rules = require('./public/js/rules.js');
 
-const PORT = Number(process.env.PORT) || 3040;
+const PORT = Number(process.env.PORT) || 3050;
 const ROOT = path.join(__dirname, 'public');
 const TICK_HZ = 30;
 const SNAPSHOT_EVERY = 2;          /* 每 2 個 tick 送一次快照 → 15Hz */
@@ -55,6 +55,18 @@ const server = http.createServer((req, res) => {
 
   /* 給前端跨網域用（GitHub Pages 前端 + Render 伺服器的組合） */
   res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
+
+  /* 給遊戲大廳問「現在有幾個人在玩」 */
+  if (url === '/api/presence') {
+    let playing = 0;
+    for (const room of hub.rooms.values()) if (room.phase === 'playing') playing += room.members.size;
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      ok: true, game: 'bubble-battle',
+      online: clients.size, rooms: hub.rooms.size, playing, time: Date.now()
+    }));
+    return;
+  }
 
   if (url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

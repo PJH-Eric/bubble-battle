@@ -3,7 +3,7 @@ chcp 65001 >nul
 title 泡泡大作戰
 cd /d "%~dp0"
 echo 正在啟動泡泡大作戰...
-start "" http://localhost:3040
+start "" http://localhost:3050
 node server.js
 if errorlevel 1 (
   echo.
