@@ -1,0 +1,16 @@
+# Render 免費方案的部署設定
+# 免費方案會休眠，第一個人進來要等 30～60 秒冷啟動，前端會顯示「喚醒伺服器中」。
+services:
+  - type: web
+    name: bubble-battle
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: ""          # 零依賴，不用安裝任何東西
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: ALLOW_ORIGIN
+        sync: false           # 正式環境請填前端網址，例如 https://<帳號>.github.io

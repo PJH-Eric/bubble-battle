@@ -1,14 +1,16 @@
 {
   "name": "bubble-battle",
   "version": "0.1.0",
-  "description": "泡泡大作戰 - 可愛動物園水球對戰（經典水球泡泡規則、平滑即時移動、單機四段電腦難度；線上大廳與觀戰建置中）",
+  "description": "泡泡大作戰 - 可愛動物園水球對戰（經典水球泡泡規則、平滑即時移動、四段電腦難度、線上大廳房間觀戰與邀請連結；零依賴）",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/verify.js",
     "test:match": "node scripts/match-check.js",
-    "verify": "node tests/verify.js && node scripts/match-check.js"
+    "test:online": "node scripts/online-check.js",
+    "verify": "node tests/verify.js && node scripts/match-check.js && node scripts/online-check.js",
+    "inject": "node scripts/inject-server-url.js"
   },
   "engines": {
     "node": ">=18"

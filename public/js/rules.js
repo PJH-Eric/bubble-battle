@@ -31,8 +31,8 @@
     MAX_BOMBS: 8,
     FUSE: 3.0,             /* 水球幾秒後爆 */
     BLAST_TTL: 0.5,        /* 水柱殘留（仍有傷害判定） */
-    TRAP_SOLO: 3.5,        /* 個人混戰：泡泡 3.5 秒，不能互救 */
-    TRAP_TEAM: 5.0,        /* 組隊：泡泡 5 秒，隊友可救 */
+    TRAP_SOLO: 3.5,        /* 個人混戰：泡泡撐 3.5 秒，破掉就出局 */
+    TRAP_TEAM: 5.0,        /* 組隊：泡泡撐 5 秒，隊友可以在這之前把你救出來 */
     INVULN: 1.5,           /* 脫困後的無敵 */
     EFFECT_TURTLE: 8,
     EFFECT_MINI: 8,
@@ -217,6 +217,30 @@
       return true;
     }
     return false;
+  }
+
+  /**
+   * 依輸入把角色移動一步。step() 與前端的本地預測共用這一支，
+   * 這樣線上模式的走位手感才會和伺服器算出來的一致。
+   */
+  function applyMove(s, p, dx, dy, dt) {
+    p.moving = false;
+    if (!dx && !dy) return;
+    /* 四方向：兩軸同時按時，優先延續目前的軸 */
+    let axis;
+    if (dx !== 0 && dy !== 0) axis = (p.dir === 'left' || p.dir === 'right') ? 'x' : 'y';
+    else axis = dx !== 0 ? 'x' : 'y';
+    const dir = axis === 'x' ? dx : dy;
+    const speed = p.speed * (p.effects && p.effects.turtle > 0 ? 0.6 : 1);
+    const moved = moveAxis(s, p, axis, dir, speed * dt);
+    if (!moved && p.glove) tryKick(s, p, axis, dir);
+    if (!moved && dx !== 0 && dy !== 0) {
+      const other = axis === 'x' ? 'y' : 'x';
+      const moved2 = moveAxis(s, p, other, other === 'x' ? dx : dy, speed * dt);
+      if (!moved2 && p.glove) tryKick(s, p, other, other === 'x' ? dx : dy);
+    }
+    p.dir = axis === 'x' ? (dir > 0 ? 'right' : 'left') : (dir > 0 ? 'down' : 'up');
+    p.moving = true;
   }
 
   /* ---------- 水球 ---------- */
@@ -439,36 +463,21 @@
       if (p.effects.reverse > 0) { dx = -dx; dy = -dy; }
 
       if (p.state === 'trapped') {
-        /* 身上有針 → 自己戳破泡泡脫困，針就用掉了。針只能自救，救不了別人。 */
-        if (p.needle) {
+        /* 身上有針 → 按放水球鍵「使用」它，自己戳破泡泡脫困，針就用掉了。
+         * 不會自動用掉，要留到什麼時候戳自己決定。針只能自救，救不了別人。 */
+        if (p.needle && raw.drop) {
           p.needle = false;
           freePlayer(s, p, 'needle');
           continue;
         }
-        /* 沒有針就動不了：不能掙脫，只能等泡泡自己破，或等隊友走過來救 */
+        /* 沒有針就動不了。泡泡撐不住就破掉 —— 泡泡一破人就出局了，
+         * 想活下來只有兩條路：隊友走過來把你救出來，或是自己用針。 */
         p.trapTimer -= dt;
-        if (p.trapTimer <= 0) freePlayer(s, p, 'timeout');
+        if (p.trapTimer <= 0) killPlayer(s, p, 'bubble');
         continue;
       }
 
-      p.moving = false;
-      if (dx !== 0 || dy !== 0) {
-        /* 四方向：兩軸同時按時，優先延續目前的軸 */
-        let axis;
-        if (dx !== 0 && dy !== 0) axis = (p.dir === 'left' || p.dir === 'right') ? 'x' : 'y';
-        else axis = dx !== 0 ? 'x' : 'y';
-        const dir = axis === 'x' ? dx : dy;
-        const speed = p.speed * (p.effects.turtle > 0 ? 0.6 : 1);
-        const moved = moveAxis(s, p, axis, dir, speed * dt);
-        if (!moved && p.glove) tryKick(s, p, axis, dir);
-        if (!moved && dx !== 0 && dy !== 0) {
-          const other = axis === 'x' ? 'y' : 'x';
-          const moved2 = moveAxis(s, p, other, other === 'x' ? dx : dy, speed * dt);
-          if (!moved2 && p.glove) tryKick(s, p, other, other === 'x' ? dx : dy);
-        }
-        p.dir = axis === 'x' ? (dir > 0 ? 'right' : 'left') : (dir > 0 ? 'down' : 'up');
-        p.moving = true;
-      }
+      applyMove(s, p, dx, dy, dt);
 
       if (raw.drop) placeBomb(s, p);
     }
@@ -681,7 +690,7 @@
     STEP: C.STEP,
     C, EMPTY, HARD, SOFT,
     GOOD_ITEMS, BAD_ITEMS,
-    createMatch, step,
+    createMatch, step, applyMove,
     placeBomb, detonate,
     dangerMap, walkable, tileAt, cellOf, bombAt, itemAt, idx
   };

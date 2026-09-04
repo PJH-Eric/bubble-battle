@@ -19,8 +19,16 @@
     };
     const KEY_DROP = new Set(['Space', 'KeyJ', 'Enter', 'KeyK']);
 
+    /** 正在打字（聊天室、暱稱欄）的時候，鍵盤不要被遊戲吃掉 */
+    function typing(e) {
+      const el = e.target;
+      if (!el || !el.tagName) return false;
+      const tag = el.tagName.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+    }
+
     function keydown(e) {
-      if (e.repeat) return;
+      if (e.repeat || typing(e)) return;
       if (KEY_DIR[e.code]) { keys.add(e.code); e.preventDefault(); }
       else if (KEY_DROP.has(e.code)) { dropQueued = true; e.preventDefault(); }
       fireUnlock();

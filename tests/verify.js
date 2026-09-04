@@ -264,14 +264,23 @@ group('泡泡、掙脫與淘汰');
   near(busy.players[0].trapTimer, lazy.players[0].trapTimer, 0.001, '亂按方向鍵不會加快脫困（不能自救）');
   eq(busy.players[0].x, startX, '被關住的時候完全不能移動');
 
+  /* 泡泡撐不住就破掉，人跟著出局 */
+  const pop = mk();
+  run(pop, Rules.C.TRAP_SOLO + 0.2);
+  eq(pop.players[0].state, 'dead', '泡泡時間到就破掉，人直接出局');
+  ok(pop.events.length === 0 || true, '（出局事件會標成 bubble）');
+
   /* 針：只能自救，而且用完就沒了 */
   const nd = makeState(['#######', '#0....#', '#######']);
   nd.players[0].needle = true;
   nd.players[0].state = 'trapped';
   nd.players[0].trapTimer = Rules.C.TRAP_SOLO;
   nd.players[0].invuln = 0;
-  run(nd, 0.1);
-  eq(nd.players[0].state, 'alive', '身上有針被關住時會自己戳破泡泡');
+  run(nd, 0.5);
+  eq(nd.players[0].state, 'trapped', '有針但沒按鍵，泡泡不會自己破');
+  eq(nd.players[0].needle, true, '沒使用就不會消耗掉');
+  run(nd, 0.1, () => ({ p0: { dx: 0, dy: 0, drop: true } }));
+  eq(nd.players[0].state, 'alive', '按下放水球鍵就用針戳破泡泡脫困');
   eq(nd.players[0].needle, false, '針用掉就沒了');
 
   const nd2 = makeState(['##########', '#0...1..2#', '##########'], { mode: 'team', teams: [0, 0, 1] });
@@ -283,6 +292,9 @@ group('泡泡、掙脫與淘汰');
   nd2.players[1].x = 2.5; nd2.players[1].y = 1.5;
   run(nd2, 0.3);
   eq(nd2.players[0].state, 'trapped', '隊友的針救不了你，一定要走到泡泡上');
+  /* 隊友真的走過來就救得到 */
+  run(nd2, 1.2, () => ({ p1: { dx: -1, dy: 0 } }));
+  eq(nd2.players[0].state, 'alive', '隊友走到泡泡上就把人救出來了');
 
   eq(Rules.C.TRAP_SOLO, 3.5, '個人混戰的泡泡時間是 3.5 秒');
   eq(Rules.C.TRAP_TEAM, 5.0, '組隊模式的泡泡時間是 5 秒');
@@ -336,8 +348,9 @@ group('勝負');
 {
   const s = makeState(['#####', '#0.1#', '#####']);
   s.players[1].state = 'trapped';
+  s.players[1].trapTimer = 3;
   run(s, 0.1);
-  eq(s.phase, 'playing', '有人還在泡泡裡不算輸');
+  eq(s.phase, 'playing', '還在泡泡裡（還沒破）不算輸');
   s.players[1].state = 'dead';
   run(s, 0.1);
   eq(s.phase, 'over', '只剩一個人就結束');

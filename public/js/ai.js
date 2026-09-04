@@ -17,21 +17,21 @@
   const LEVELS = {
     baby: {
       label: '幼幼班', think: 0.55, margin: 2.6,
-      hunt: 0, finish: false, retreat: 3, bombChance: 0.35,
+      hunt: 0, finish: false, retreat: 3, bombChance: 0.3,
       avoidBad: false, predict: false, kick: false, trap: false
     },
     easy: {
-      label: '簡單', think: 0.60, margin: 2.2,
+      label: '簡單', think: 0.58, margin: 2.2,
       hunt: 3, finish: false, retreat: 0, bombChance: 0.6,
       avoidBad: false, predict: false, kick: false, trap: false
     },
     normal: {
-      label: '普通', think: 0.30, margin: 1.7,
+      label: '普通', think: 0.28, margin: 1.9,
       hunt: 5, finish: true, retreat: 0, bombChance: 0.85,
       avoidBad: true, predict: false, kick: true, trap: true
     },
     hard: {
-      label: '困難', think: 0.12, margin: 1.25,
+      label: '困難', think: 0.11, margin: 1.6,
       hunt: 9, finish: true, retreat: 0, bombChance: 1,
       avoidBad: true, predict: true, kick: true, trap: true
     }
@@ -39,6 +39,15 @@
 
   function create() {
     const memory = new Map();
+    /* 危險圖一個 tick 只算一次，全部電腦共用 */
+    const cache = { tick: -1, danger: null };
+    function getDanger(state) {
+      if (cache.tick !== state.tick || !cache.danger) {
+        cache.tick = state.tick;
+        cache.danger = Rules.dangerMap(state);
+      }
+      return cache.danger;
+    }
 
     /** 取得（或建立）某個電腦玩家的思考狀態 */
     function mem(p) {
@@ -58,15 +67,22 @@
       const m = mem(p);
 
       if (p.state === 'trapped') {
-        /* 被關住就真的動不了，只能等泡泡破或等隊友來救 */
-        return { dx: 0, dy: 0, drop: false };
+        /* 被關住就動不了；身上有針的話電腦會用掉它脫困 */
+        return { dx: 0, dy: 0, drop: !!p.needle };
       }
       if (p.state !== 'alive') return { dx: 0, dy: 0, drop: false };
 
+      /* 站在會被炸到的格子上時，不管什麼難度都要立刻重新判斷 —— 泡泡一破就出局，
+       * 慢半拍就沒命了。電腦的「笨」表現在攻擊與判斷上，不表現在自殺上。 */
+      const danger = getDanger(state);
+      const here = Rules.cellOf(p);
+      const inDanger = danger[Rules.idx(state, here.c, here.r)] < Infinity;
+      if (inDanger && m.wait > 0.08) m.wait = 0.08;
+
       m.wait -= dt;
       if (m.wait <= 0) {
-        m.wait = lv.think;
-        const plan = decide(state, p, lv);
+        m.wait = inDanger ? Math.min(lv.think, 0.12) : lv.think;
+        const plan = decide(state, p, lv, danger);
         m.move = plan.move;
         m.drop = plan.drop;
       }
@@ -80,14 +96,14 @@
 
   /* ---------- 決策 ---------- */
 
-  function decide(state, p, lv) {
-    const danger = Rules.dangerMap(state);
+  function decide(state, p, lv, danger) {
+    danger = danger || Rules.dangerMap(state);
     const here = Rules.cellOf(p);
     const nav = bfs(state, here, danger, p.speed, lv.margin);
     const hereDanger = danger[Rules.idx(state, here.c, here.r)];
 
-    /* 1. 腳下危險 → 逃 */
-    if (hereDanger < lv.margin) {
+    /* 1. 只要腳下這一格之後會被水柱掃到就先撤 —— 泡泡一破就出局，站在爆炸範圍裡沒有僥倖可言 */
+    if (hereDanger < Infinity) {
       const escape = nearestSafe(state, nav, danger);
       if (escape) return { move: stepToward(nav, escape), drop: false };
       /* 無處可逃就往危險最小的鄰格挪 */
@@ -404,7 +420,7 @@
   function wander(state, here, danger, margin) {
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dc, dr]) => {
       const c = here.c + dc, r = here.r + dr;
-      return Rules.walkable(state, c, r) && danger[Rules.idx(state, c, r)] >= margin;
+      return Rules.walkable(state, c, r) && danger[Rules.idx(state, c, r)] === Infinity;
     });
     if (!dirs.length) return { dx: 0, dy: 0 };
     const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
