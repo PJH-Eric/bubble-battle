@@ -15,7 +15,7 @@
     reduceMotion: false,
     aiCount: 3,
     aiLevel: 'normal',
-    mapPick: 'meadow-open',
+    mapPick: 'open',
     seenHelp: false,
     seenRotateTip: false,
     stats: { matches: 0, wins: 0, bestSurvive: 0, boxes: 0, items: 0, charUse: {} }

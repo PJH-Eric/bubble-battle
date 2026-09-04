@@ -26,8 +26,24 @@
 
   /* ---------- 畫面切換 ---------- */
 
+  function updateScreenNav(id) {
+    const nav = $('#screen-nav');
+    if (!nav) return;
+    const back = $('#btn-back');
+    const labels = {
+      setup: '返回首頁', lobby: '返回首頁', room: '返回大廳',
+      game: '離開這局', result: '返回首頁', help: '返回首頁'
+    };
+    const label = labels[id] || '返回';
+    nav.hidden = id === 'home';
+    back.hidden = id === 'home';
+    back.textContent = '← ' + label;
+    back.setAttribute('aria-label', label);
+  }
+
   function show(id) {
     $$('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + id));
+    updateScreenNav(id);
     if (id !== 'game') stopLoop();
   }
 
@@ -87,8 +103,10 @@
       mapSel.appendChild(new Option(m.name + '（' + m.desc + '）', m.id));
     }
     mapSel.appendChild(new Option('隨機地圖（每局都不一樣）', 'random'));
-    mapSel.value = store.mapPick && (store.mapPick === 'random' || Maps.MAPS.some(m => m.id === store.mapPick))
+    const validMap = store.mapPick && (store.mapPick === 'random' || Maps.MAPS.some(m => m.id === store.mapPick))
       ? store.mapPick : Maps.MAPS[1].id;
+    mapSel.value = validMap;
+    store.mapPick = validMap;
 
     const fieldSel = $('#in-field');
     fieldSel.innerHTML = '';
@@ -469,6 +487,20 @@
 
     $('#btn-again').addEventListener('click', () => { if (lastConfig) startMatch(lastConfig); });
     $('#btn-quit').addEventListener('click', () => { stopLoop(); phase = 'idle'; buildHome(); show('home'); });
+    $('#btn-back').addEventListener('click', () => {
+      audio.unlock();
+      const active = $('.screen.active');
+      const id = active ? active.id.replace('screen-', '') : 'home';
+      if (id === 'room' || (id === 'game' && mode === 'online')) {
+        leaveOnlineRoom();
+        return;
+      }
+      stopLoop();
+      phase = 'idle';
+      buildHome();
+      show('home');
+    });
+    $('#btn-refresh-room').addEventListener('click', () => { audio.unlock(); refreshRoomList(); });
     $('#btn-rotate-ok').addEventListener('click', () => {
       $('#rotate-tip').hidden = true;
       store.seenRotateTip = true;
@@ -558,6 +590,21 @@
     chatDock(false);
     if (online && online.connected) online.send({ t: 'lobby' });
     show('lobby');
+  }
+
+  function leaveOnlineRoom() {
+    const sent = online && online.send({ t: 'leave' });
+    roomView = null;
+    backToLobby();
+    if (!sent) flash('目前沒有連線，已先返回大廳');
+  }
+
+  function refreshRoomList() {
+    if (!online || !online.send({ t: 'lobby' })) {
+      flash('目前沒有連線，無法重新整理房間列表');
+      return;
+    }
+    flash('房間列表已更新');
   }
 
   function renderLobby(rooms) {
@@ -671,8 +718,10 @@
     setup.appendChild(pickField('模式', 'mode', [['solo', '個人混戰'], ['team', '組隊對戰']], view.mode, host));
     setup.appendChild(pickField('人數上限', 'maxPlayers',
       [2, 3, 4, 5, 6, 7, 8].map(n => [String(n), n + ' 人']), String(view.maxPlayers), host));
+    const mapOptions = Maps.MAPS.map(m => [m.id, m.name]).concat([['random', '隨機地圖']]);
+    const validMap = mapOptions.some(([id]) => id === view.mapId) ? view.mapId : Maps.MAPS[1].id;
     setup.appendChild(pickField('地圖', 'mapId',
-      Maps.MAPS.map(m => [m.id, m.name]).concat([['random', '隨機地圖']]), view.mapId, host));
+      mapOptions, validMap, host));
     setup.appendChild(pickField('場景外觀', 'field',
       Fields.FIELDS.map(f => [f.id, f.name]), view.field, host));
     setup.appendChild(pickField('負面道具', 'negativeItems',
@@ -920,7 +969,6 @@
       online.send({ t: 'seat', want: me && me.role === 'player' ? 'spectator' : 'player' });
     });
     $('#btn-invite').addEventListener('click', () => online.send({ t: 'invite:new' }));
-    $('#btn-leave-room').addEventListener('click', () => online.send({ t: 'leave' }));
 
     const quick = $('#chat-quick');
     for (const word of QUICK_WORDS) {

@@ -14,8 +14,13 @@
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Zm8.4 3.5a8.4 8.4 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a8.2 8.2 0 0 0-2-1.2L15.6 3h-3.9l-.4 2.6a8.2 8.2 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a8.4 8.4 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a8.2 8.2 0 0 0 2 1.2l.4 2.6h3.9l.4-2.6a8.2 8.2 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.06-.4.1-.8.1-1.2Z"/></svg>
 </button>
 
+<nav id="screen-nav" class="screen-nav" aria-label="畫面導覽">
+  <button id="btn-back" class="nav-btn" type="button">← 返回</button>
+</nav>
+
 <!-- ===== 首頁 ===== -->
 <section id="screen-home" class="screen active">
+  <a class="nav-btn lobby-home-link" href="https://pjh-eric.github.io/game-lobby/" aria-label="回遊戲大廳">← 回遊戲大廳</a>
   <div class="home-art">
     <svg viewBox="0 0 320 150" aria-hidden="true">
       <ellipse cx="160" cy="132" rx="130" ry="12" fill="#000" opacity=".07"/>
@@ -69,7 +74,6 @@
     </div>
 
     <div class="row-btns">
-      <button class="big-btn ghost" data-go="home">回首頁</button>
       <button class="big-btn primary" id="btn-start">開始遊戲</button>
     </div>
   </div>
@@ -88,7 +92,10 @@
     <div class="row-btns lobby-actions">
       <button class="big-btn primary" id="btn-quick">快速加入</button>
       <button class="big-btn" id="btn-create">建立房間</button>
-      <button class="big-btn ghost" data-go="home">回首頁</button>
+    </div>
+    <div class="room-list-head">
+      <h3>房間列表</h3>
+      <button id="btn-refresh-room" class="mini-btn" type="button">↻ 重新整理房間</button>
     </div>
     <div id="room-list" class="room-list"></div>
   </div>
@@ -97,20 +104,40 @@
 <!-- ===== 房間 ===== -->
 <section id="screen-room" class="screen">
   <div class="panel room">
-    <h2 id="room-title">房間</h2>
-    <div id="room-setup" class="room-setup"></div>
+    <div class="room-head">
+      <div>
+        <p class="eyebrow">線上房間</p>
+        <h2 id="room-title">房間</h2>
+      </div>
+    </div>
 
-    <div class="seats-head"><span>席位</span><span id="seat-count"></span></div>
-    <ul id="seat-list" class="seat-list"></ul>
-    <div id="ai-row" class="row-btns ai-row"></div>
-    <div id="spectator-line" class="spectators"></div>
+    <section class="room-section room-settings" aria-labelledby="room-settings-title">
+      <div class="section-head">
+        <h3 id="room-settings-title">房間設定</h3>
+        <span>房主可調整</span>
+      </div>
+      <div id="room-setup" class="room-setup"></div>
+    </section>
 
-    <div class="row-btns">
-      <button class="mini-btn" id="btn-seat-toggle">改成觀戰</button>
-      <button class="mini-btn" id="btn-invite">邀請連結</button>
-      <button class="mini-btn" id="btn-leave-room">離開房間</button>
-      <button class="big-btn" id="btn-ready">準備好了</button>
-      <button class="big-btn primary" id="btn-host-start">開始遊戲</button>
+    <section class="room-section room-seats" aria-labelledby="seat-title">
+      <div class="section-head seats-head">
+        <h3 id="seat-title">席位</h3>
+        <span id="seat-count"></span>
+      </div>
+      <ul id="seat-list" class="seat-list"></ul>
+      <div id="ai-row" class="row-btns ai-row"></div>
+      <div id="spectator-line" class="spectators"></div>
+    </section>
+
+    <div class="room-actions">
+      <div class="room-actions-secondary">
+        <button class="mini-btn" id="btn-seat-toggle">改成觀戰</button>
+        <button class="mini-btn" id="btn-invite">邀請連結</button>
+      </div>
+      <div class="room-actions-primary">
+        <button class="big-btn" id="btn-ready">準備好了</button>
+        <button class="big-btn primary" id="btn-host-start">開始遊戲</button>
+      </div>
     </div>
     <div id="invite-box" class="invite-box" hidden></div>
   </div>
@@ -171,7 +198,6 @@
     <h2 id="result-title">勝利！</h2>
     <p id="result-line" class="result-line"></p>
     <div class="row-btns">
-      <button class="big-btn ghost" data-go="home">回首頁</button>
       <button class="big-btn primary" id="btn-again">再來一局</button>
     </div>
   </div>
