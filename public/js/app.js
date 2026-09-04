@@ -32,11 +32,12 @@
     const back = $('#btn-back');
     const labels = {
       setup: '返回首頁', lobby: '返回首頁', room: '返回大廳',
-      game: '離開這局', result: '返回首頁', help: '返回首頁'
+      result: '返回首頁', help: '返回首頁'
     };
     const label = labels[id] || '返回';
-    nav.hidden = id === 'home';
-    back.hidden = id === 'home';
+    const hidden = id === 'home' || id === 'game';
+    nav.hidden = hidden;
+    back.hidden = hidden;
     back.textContent = '← ' + label;
     back.setAttribute('aria-label', label);
   }
@@ -486,7 +487,16 @@
     });
 
     $('#btn-again').addEventListener('click', () => { if (lastConfig) startMatch(lastConfig); });
-    $('#btn-quit').addEventListener('click', () => { stopLoop(); phase = 'idle'; buildHome(); show('home'); });
+    $('#btn-quit').addEventListener('click', () => {
+      if (mode === 'online') {
+        leaveOnlineRoom();
+        return;
+      }
+      stopLoop();
+      phase = 'idle';
+      buildHome();
+      show('home');
+    });
     $('#btn-back').addEventListener('click', () => {
       audio.unlock();
       const active = $('.screen.active');
@@ -536,6 +546,7 @@
   let inputTimer = 0;
   let lastSentInput = { dx: 0, dy: 0 };
   let inputSeq = 0;
+  let lastOnlineResult = null;
 
   const QUICK_WORDS = ['好啊！', '救我！', '小心！', '等我一下', 'GG', '哈哈'];
   const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c =>
@@ -677,15 +688,28 @@
     const first = !roomView;
     roomView = view;
     renderChat(view.chat);
-    chatDock(true);
 
     if (view.phase === 'lobby') {
+      hideOnlineResult(true);
+      chatDock(true);
       if (mode === 'online' && phase !== 'idle') { stopLoop(); phase = 'idle'; }
       mode = 'solo';
       renderRoom(view);
       show('room');
       return;
     }
+    if (view.phase === 'result') {
+      stopLoop();
+      mode = 'online';
+      phase = 'idle';
+      chatDock(true);
+      renderRoom(view);
+      show('room');
+      if (lastOnlineResult) paintOnlineResult(lastOnlineResult);
+      return;
+    }
+    hideOnlineResult(true);
+    chatDock(true, true);
     if (!$('#screen-game').classList.contains('active')) startOnlineMatch();
     if (view.phase === 'countdown') {
       $('#countdown').hidden = false;
@@ -855,30 +879,89 @@
 
   let resultShownFor = 0;
   function showOnlineResult(msg) {
-    if (resultShownFor === msg.tick || !msg.standings) return;
+    if (!msg.standings) return;
+    const freshResult = resultShownFor !== msg.tick;
     resultShownFor = msg.tick;
+    lastOnlineResult = msg;
     stopLoop();
-    mode = 'solo';        /* 先停掉對局迴圈，房間狀態回到大廳時會再帶你回房間 */
+    mode = 'online';
     phase = 'idle';
 
-    const winner = msg.winner ? msg.standings.find(p => p.id === msg.winner) : null;
-    const me = msg.standings.find(p => p.id === meId);
-    const shown = winner || me || msg.standings[0];
-    Render.sprite($('#winner-svg'), shown ? shown.char : 'cat');
-    $('#result-title').textContent = msg.resultText || '這一局結束了';
-    $('#result-line').textContent = shown
-      ? '存活 ' + shown.survived + ' 秒 ・ 破箱 ' + shown.boxes + ' 個' +
-        (msg.reason === 'timeup' ? '（時間到）' : '') + '　8 秒後回到房間'
-      : '';
-    $('#btn-again').hidden = true;
-    show('result');
+    if (roomView) renderRoom(roomView);
+    chatDock(true);
+    show('room');
+    paintOnlineResult(msg);
 
+    if (!freshResult) return;
+
+    const me = msg.standings.find(p => p.id === meId);
     if (me) {
       Store.record(store, {
-        win: !!winner && winner.id === meId,
+        win: isOnlineWinner(msg, me),
         survived: me.survived, boxes: me.boxes, items: 0, char: me.char
       });
       buildHome();
+    }
+  }
+
+  function isOnlineWinner(msg, player) {
+    if (msg.winner) return player.id === msg.winner;
+    return msg.winnerTeam != null && player.team === msg.winnerTeam;
+  }
+
+  function paintOnlineResult(msg) {
+    const winner = msg.winner ? msg.standings.find(p => p.id === msg.winner) : null;
+    const teamWinner = msg.winnerTeam == null
+      ? null : msg.standings.find(p => p.team === msg.winnerTeam);
+    const me = msg.standings.find(p => p.id === meId);
+    const shown = winner || teamWinner || me || msg.standings[0];
+    Render.sprite($('#online-winner-svg'), shown ? shown.char : 'cat');
+    $('#online-result-title').textContent = msg.resultText || '這一局結束了';
+    $('#online-result-line').textContent = msg.reason === 'timeup'
+      ? '時間到！看看這一局大家的表現。' : '勝負揭曉，房間和聊天室都還保留著。';
+
+    const standings = msg.standings.slice().sort((a, b) => {
+      const winnerDiff = Number(isOnlineWinner(msg, b)) - Number(isOnlineWinner(msg, a));
+      return winnerDiff || b.boxes - a.boxes || b.survived - a.survived;
+    });
+    const list = $('#online-result-standings');
+    list.innerHTML = '';
+    standings.forEach((player, index) => {
+      const row = document.createElement('div');
+      row.className = 'online-result-row' + (isOnlineWinner(msg, player) ? ' winner' : '');
+
+      const rank = document.createElement('span');
+      rank.className = 'online-result-rank';
+      rank.textContent = isOnlineWinner(msg, player) ? '★' : String(index + 1);
+
+      const avatar = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      avatar.setAttribute('class', 'online-result-avatar');
+      Render.sprite(avatar, player.char);
+
+      const name = document.createElement('span');
+      name.className = 'online-result-name';
+      name.textContent = player.name + (player.id === meId ? '（你）' : '');
+      const survived = document.createElement('small');
+      survived.textContent = '存活 ' + player.survived + ' 秒';
+      name.appendChild(survived);
+
+      const boxes = document.createElement('span');
+      boxes.className = 'online-result-boxes';
+      boxes.textContent = '破箱 ' + player.boxes;
+      row.append(rank, avatar, name, boxes);
+      list.appendChild(row);
+    });
+
+    const overlay = $('#online-result-overlay');
+    overlay.hidden = false;
+    requestAnimationFrame(() => $('#online-result-card').focus({ preventScroll: true }));
+  }
+
+  function hideOnlineResult(clear) {
+    $('#online-result-overlay').hidden = true;
+    if (clear) {
+      lastOnlineResult = null;
+      resultShownFor = 0;
     }
   }
 
@@ -957,9 +1040,41 @@
 
   /* ---------- 聊天室 ---------- */
 
-  function chatDock(showIt) {
-    $('#chat-dock').hidden = !showIt;
-    if (!showIt) { $('#chat-panel').hidden = true; chatOpen = false; }
+  function setChatOpen(open) {
+    chatOpen = open;
+    $('#chat-panel').hidden = !open;
+    $('#chat-toggle').setAttribute('aria-expanded', String(open));
+    $('#chat-dock').classList.toggle('open', open);
+    if (!open) return;
+    unread = 0;
+    $('#chat-unread').hidden = true;
+    const log = $('#chat-log');
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function placeChat(inGame) {
+    const dock = $('#chat-dock');
+    const host = inGame ? $('#summary') : $('#chat-host');
+    const moved = dock.parentElement !== host;
+    if (moved) {
+      if (inGame) host.insertBefore(dock, $('#btn-quit'));
+      else host.appendChild(dock);
+    }
+    dock.classList.toggle('in-game', inGame);
+    $('#chat-title').textContent = inGame ? '對局聊天室' : '聊天室';
+    $('#chat-panel').setAttribute('aria-label', inGame ? '對局聊天室' : '房間聊天室');
+    return moved;
+  }
+
+  function chatDock(showIt, inGame) {
+    const moved = placeChat(Boolean(inGame));
+    const dock = $('#chat-dock');
+    dock.hidden = !showIt;
+    if (!showIt) setChatOpen(false);
+    else if (inGame && moved) {
+      const compact = window.matchMedia('(max-width: 900px), (orientation: portrait) and (max-width: 1100px)').matches;
+      setChatOpen(!compact);
+    } else if (!inGame && moved) setChatOpen(false);
   }
 
   function renderChat(lines) {
@@ -1021,14 +1136,7 @@
       quick.appendChild(b);
     }
     $('#chat-toggle').addEventListener('click', () => {
-      chatOpen = !chatOpen;
-      $('#chat-panel').hidden = !chatOpen;
-      if (chatOpen) {
-        unread = 0;
-        $('#chat-unread').hidden = true;
-        const log = $('#chat-log');
-        log.scrollTop = log.scrollHeight;
-      }
+      setChatOpen(!chatOpen);
     });
     $('#chat-form').addEventListener('submit', e => {
       e.preventDefault();

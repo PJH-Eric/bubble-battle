@@ -102,7 +102,7 @@ group('地圖');
     }
     return seen;
   };
-  for (const [cols, rows] of [[15, 13], [17, 15]]) {
+  for (const [cols, rows] of [[15, 13], [17, 15], [19, 13], [21, 15]]) {
     let allOk = true;
     for (const m of Maps.MAPS) {
       const gm = Maps.build({ cols, rows, mapId: m.id, seed: 'v', playerCount: 8 });
@@ -114,6 +114,25 @@ group('地圖');
   const a = Maps.build({ cols: 15, rows: 13, random: true, seed: 'same', playerCount: 4 });
   const b = Maps.build({ cols: 15, rows: 13, random: true, seed: 'same', playerCount: 4 });
   ok(a.tiles.join('') === b.tiles.join(''), '同一個種子生出同一張隨機地圖');
+
+  /* 固定地圖要以可炸方塊為主，避免石牆再次擠滿室內空間 */
+  let densityOk = true;
+  for (const m of Maps.MAPS) {
+    let hard = 0, soft = 0, total = 0;
+    for (let n = 0; n < 12; n++) {
+      const gm = Maps.build({ cols: 15, rows: 13, mapId: m.id, seed: 'density-' + n, playerCount: 4 });
+      for (let r = 1; r < gm.rows - 1; r++) {
+        for (let c = 1; c < gm.cols - 1; c++) {
+          const tile = gm.tiles[r * gm.cols + c];
+          hard += tile === Maps.HARD ? 1 : 0;
+          soft += tile === Maps.SOFT ? 1 : 0;
+          total++;
+        }
+      }
+    }
+    if (hard / total > 0.33 || soft / total < 0.38) densityOk = false;
+  }
+  ok(densityOk, '每張固定地圖都減少石牆並以可炸方塊為主');
 }
 
 /* ---------------------------------------------------------- */

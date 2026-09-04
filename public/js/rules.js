@@ -88,7 +88,7 @@
   function createMatch(cfg) {
     const players = cfg.players || [];
     const count = players.length;
-    const cols = cfg.cols || (count > 4 || cfg.mode === 'team' ? 17 : 15);
+    const cols = cfg.cols || (count > 4 || cfg.mode === 'team' ? 21 : 19);
     const rows = cfg.rows || (count > 4 || cfg.mode === 'team' ? 15 : 13);
     const seed = cfg.seed == null ? String(Date.now()) : cfg.seed;
 

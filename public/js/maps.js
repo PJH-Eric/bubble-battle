@@ -14,6 +14,8 @@
   const EMPTY = 0;
   const HARD = 1;
   const SOFT = 2;
+  const BASE_PILLAR_SKIP = 3;
+  const SOFT_DENSITY_BOOST = 0.08;
 
   /* 每張固定地圖：在經典棋盤骨架上加減硬塊，做出走位個性 */
   const MAPS = [
@@ -64,13 +66,13 @@
     },
     {
       id: 'serpent', name: '蛇形長廊', desc: '長牆左右錯開，只能繞著跑',
-      density: 0.60,
+      density: 0.66,
       extra(c, r, cols, rows) {
         /* 缺口挑奇數列，才不會壓在棋盤柱上變成沒開 */
         const gapR = 2 * Math.floor((rows - 1) / 4) + 1;
-        if (c % 4 === 2) return r >= 2 && r !== gapR;                    /* 上面與中段留缺口 */
+        if (c % 4 === 2) return r >= 2 && r !== gapR && r % 4 !== 0;     /* 上面與中段留缺口 */
         if (c % 4 === 0 && c > 0 && c < cols - 1) {
-          return r <= rows - 3 && r !== gapR + 2;                        /* 下面與中段留缺口 */
+          return r <= rows - 3 && r !== gapR + 2 && r % 4 !== 2;         /* 下面與中段留缺口 */
         }
         return false;
       }
@@ -107,6 +109,13 @@
   ];
 
   function idx(cols, c, r) { return r * cols + c; }
+
+  /** 經典棋盤柱每三組略過一組，保留走位節奏但增加可炸空間 */
+  function hasBasePillar(c, r, def) {
+    if (c % 2 !== 0 || r % 2 !== 0) return false;
+    if ((c / 2 + r / 2) % BASE_PILLAR_SKIP === 0) return false;
+    return !(def.remove && def.remove(c, r));
+  }
 
   /** 八個出生點：先四角，人多再往四邊中點長 */
   function spawnOrder(cols, rows) {
@@ -163,7 +172,7 @@
       for (let c = 0; c < cols; c++) {
         let v = EMPTY;
         if (c === 0 || r === 0 || c === cols - 1 || r === rows - 1) v = HARD;
-        else if (c % 2 === 0 && r % 2 === 0 && !(def.remove && def.remove(c, r))) v = HARD;
+        else if (hasBasePillar(c, r, def)) v = HARD;
         else if (def.extra && def.extra(c, r, cols, rows)) v = HARD;
         tiles[idx(cols, c, r)] = v;
       }
@@ -192,7 +201,7 @@
         const i = idx(cols, c, r);
         if (tiles[i] !== EMPTY) continue;
         if (safe.has(c + ':' + r)) continue;
-        if (rng.chance(def.density)) tiles[i] = SOFT;
+        if (rng.chance(Math.min(0.9, def.density + SOFT_DENSITY_BOOST))) tiles[i] = SOFT;
       }
     }
 

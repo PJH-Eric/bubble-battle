@@ -18,6 +18,21 @@ function ok(cond, name, extra) {
 }
 const eq = (a, b, name) => ok(a === b, name, 'expected ' + b + ', got ' + a);
 
+function getJson(port, pathname) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ hostname: '127.0.0.1', port, path: pathname }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode));
+        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+  });
+}
+
 /* ---------------- 第一段：房間邏輯 ---------------- */
 
 let clock = 1000000;
@@ -256,12 +271,15 @@ setTimeout(() => {
   setTimeout(() => a.send({ t: 'chat', text: '哈囉' }), 1200);
   setTimeout(() => a.send({ t: 'input', seq: 1, dx: 1, dy: 0, drop: false }), 4500);
 
-  setTimeout(() => {
+  setTimeout(async () => {
     const welcome = seen.A.find(m => m.t === 'welcome');
     const room = seen.A.filter(m => m.t === 'room').pop();
     const snapA = seen.A.filter(m => m.t === 'snap');
     const snapB = seen.B.filter(m => m.t === 'snap');
     const chat = (room && room.room.chat || []).some(c => c.text === '哈囉');
+    let presence = null;
+    try { presence = await getJson(PORT, '/api/presence'); }
+    catch (e) { /* 下面的格式檢查會把這次失敗列出來 */ }
 
     ok(!!welcome && !!welcome.id, '連上去就拿到自己的 id');
     ok(!!room, '收得到房間狀態');
@@ -274,6 +292,9 @@ setTimeout(() => {
     const moved = snapA[snapA.length - 1].players.find(p => p.id === welcome.id);
     ok(!!moved, '快照裡找得到自己');
     ok(seen.D.some(m => m.t === 'closed'), '最後真人離開後觀戰者收到房間關閉通知');
+    ok(presence && presence.gameId === 'bubble-battle', '在線人數 API 回傳正確遊戲識別');
+    ok(presence && presence.online === 4 && presence.players === 2 && presence.spectators === 0 && presence.lobby === 2 && presence.rooms === 1,
+      '在線人數 API 回傳統一欄位與正確數量', presence && JSON.stringify(presence));
 
     a.end(); b.end(); c.end(); d.end();
     console.log('\n────────────────────────────');

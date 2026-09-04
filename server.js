@@ -58,12 +58,21 @@ const server = http.createServer((req, res) => {
 
   /* 給遊戲大廳問「現在有幾個人在玩」 */
   if (url === '/api/presence') {
-    let playing = 0;
-    for (const room of hub.rooms.values()) if (room.phase === 'playing') playing += room.members.size;
+    const connectedMembers = [...hub.rooms.values()].flatMap(room =>
+      [...room.members.values()].filter(member => member.connected));
+    const players = connectedMembers.filter(member => member.role === 'player').length;
+    const spectators = connectedMembers.filter(member => member.role === 'spectator').length;
+    const activeRooms = [...hub.rooms.values()].filter(room =>
+      [...room.members.values()].some(member => member.connected)).length;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
-      ok: true, game: 'bubble-battle',
-      online: clients.size, rooms: hub.rooms.size, playing, time: Date.now()
+      gameId: 'bubble-battle',
+      online: clients.size,
+      players,
+      spectators,
+      lobby: [...clients.values()].filter(client => !client.roomId).length,
+      rooms: activeRooms,
+      updatedAt: new Date().toISOString()
     }));
     return;
   }

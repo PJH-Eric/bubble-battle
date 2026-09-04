@@ -165,20 +165,36 @@
     </div>
     <div id="invite-box" class="invite-box" hidden></div>
   </div>
+
+  <div id="online-result-overlay" class="room-result-overlay" role="dialog" aria-modal="true"
+       aria-labelledby="online-result-title" hidden>
+    <div id="online-result-card" class="room-result-card" tabindex="-1">
+      <div class="winner-art online-winner-art">
+        <svg id="online-winner-svg" viewBox="-1 -1.4 2 2.4" aria-hidden="true"></svg>
+      </div>
+      <p class="eyebrow">本局結算</p>
+      <h2 id="online-result-title">這一局結束了</h2>
+      <p id="online-result-line" class="result-line"></p>
+      <div id="online-result-standings" class="online-result-standings" aria-label="本局排名"></div>
+      <p class="room-result-note">結算結束後會直接回到這個房間，準備好就能再玩一局。</p>
+    </div>
+  </div>
 </section>
 
-<!-- ===== 聊天室（房間與對戰共用，固定在左下角） ===== -->
-<div id="chat-dock" class="chat-dock" hidden>
-  <button id="chat-toggle" class="chat-toggle">
-    <span>聊天室</span><span id="chat-unread" class="unread" hidden>0</span>
-  </button>
-  <div id="chat-panel" class="chat-panel" hidden>
-    <div id="chat-log" class="chat-log"></div>
-    <div id="chat-quick" class="chat-quick"></div>
-    <form id="chat-form" class="chat-form">
-      <input id="chat-input" type="text" maxlength="60" placeholder="說點什麼…" autocomplete="off">
-      <button class="mini-btn" type="submit">送出</button>
-    </form>
+<!-- ===== 聊天室（房間浮動顯示，對戰時移入左側資訊欄） ===== -->
+<div id="chat-host" class="chat-host">
+  <div id="chat-dock" class="chat-dock" hidden>
+    <button id="chat-toggle" class="chat-toggle" type="button" aria-expanded="false" aria-controls="chat-panel">
+      <span id="chat-title">聊天室</span><span id="chat-unread" class="unread" hidden>0</span>
+    </button>
+    <div id="chat-panel" class="chat-panel" role="region" aria-label="房間聊天室" hidden>
+      <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions"></div>
+      <div id="chat-quick" class="chat-quick"></div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" type="text" maxlength="60" placeholder="說點什麼…" autocomplete="off" aria-label="聊天室訊息">
+        <button class="mini-btn" type="submit">送出</button>
+      </form>
+    </div>
   </div>
 </div>
 
