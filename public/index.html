@@ -40,40 +40,61 @@
 
 <!-- ===== 單機設定 ===== -->
 <section id="screen-setup" class="screen">
-  <div class="panel">
-    <h2>一個人玩</h2>
-
-    <label class="field">
-      <span>你的名字</span>
-      <input id="in-nickname" type="text" maxlength="6" placeholder="小玩家">
-    </label>
-
-    <div class="field">
-      <span>選一隻角色</span>
-      <div id="char-picker" class="picker"></div>
-    </div>
-
-    <div class="field">
-      <span>電腦對手</span>
-      <div class="stepper">
-        <button type="button" class="round-btn" id="ai-minus" aria-label="少一個電腦">−</button>
-        <span class="stepper-num"><b id="ai-count-label">3</b> 個</span>
-        <button type="button" class="round-btn" id="ai-plus" aria-label="多一個電腦">＋</button>
+  <div class="panel single-setup">
+    <div class="setup-heading">
+      <div>
+        <h2>一個人玩</h2>
+        <p>選好角色與對手，馬上開始挑戰</p>
       </div>
-      <div id="ai-levels" class="ai-levels"></div>
     </div>
 
-    <div class="field">
-      <span>地圖</span>
-      <select id="in-map"></select>
+    <div class="setup-grid">
+      <section class="setup-block setup-player">
+        <h3>玩家</h3>
+        <label class="field">
+          <span>你的名字</span>
+          <input id="in-nickname" type="text" maxlength="6" placeholder="小玩家">
+        </label>
+
+        <div class="field">
+          <span>選一隻角色</span>
+          <div id="char-picker" class="picker"></div>
+        </div>
+      </section>
+
+      <section class="setup-block setup-opponents">
+        <div class="setup-block-head">
+          <h3>電腦對手</h3>
+          <span>最多 7 個</span>
+        </div>
+        <div class="stepper">
+          <button type="button" class="round-btn" id="ai-minus" aria-label="少一個電腦">−</button>
+          <span class="stepper-num"><b id="ai-count-label">3</b> 個</span>
+          <button type="button" class="round-btn" id="ai-plus" aria-label="多一個電腦">＋</button>
+        </div>
+        <div id="ai-levels" class="ai-levels"></div>
+      </section>
+
+      <section class="setup-block setup-world">
+        <div class="setup-block-head">
+          <h3>遊戲環境</h3>
+          <span>每局開始前都能調整</span>
+        </div>
+        <div class="setup-world-grid">
+          <label class="field">
+            <span>地圖</span>
+            <select id="in-map"></select>
+          </label>
+
+          <label class="field">
+            <span>場景外觀</span>
+            <select id="in-field"></select>
+          </label>
+        </div>
+      </section>
     </div>
 
-    <div class="field">
-      <span>場景外觀</span>
-      <select id="in-field"></select>
-    </div>
-
-    <div class="row-btns">
+    <div class="row-btns setup-actions">
       <button class="big-btn primary" id="btn-start">開始遊戲</button>
     </div>
   </div>

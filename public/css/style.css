@@ -83,6 +83,27 @@ html, body {
   padding: 24px; width: min(560px, 100%); margin: auto;
   max-height: 100%; overflow: auto;
 }
+.single-setup { width: min(820px, 100%); padding: clamp(20px, 3vw, 30px); }
+.setup-heading { margin-bottom: 18px; }
+.setup-heading h2 { margin: 0; }
+.setup-heading p { margin: 4px 0 0; color: var(--ink-soft); font-size: .82rem; }
+.setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.setup-block {
+  min-width: 0; padding: 16px; border: 2px solid var(--line); border-radius: 20px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F7FCFE 100%);
+}
+.setup-block h3 { margin: 0; color: var(--blue-dark); font-size: 1rem; }
+.setup-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.setup-block-head > span { color: var(--ink-soft); font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.setup-block .field { margin-bottom: 14px; }
+.setup-player .field:last-child, .setup-world-grid .field { margin-bottom: 0; }
+.setup-opponents .stepper { margin: 2px 0 12px; }
+.setup-opponents .ai-levels { margin-top: 0; }
+.setup-world { grid-column: 1 / -1; }
+.setup-world-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.single-setup input[type=text] { min-height: 48px; }
+.setup-actions { margin-top: 18px; padding-top: 18px; border-top: 2px solid var(--line); }
+.setup-actions .big-btn { min-width: 180px; }
 .field { display: block; margin: 0 0 16px; }
 .field > span { display: block; font-weight: 700; font-size: .92rem; margin-bottom: 6px; }
 input[type=text], select {
@@ -256,37 +277,40 @@ body.no-touch .touch { display: none; }
 /* ---------- 大廳 ---------- */
 
 #screen-lobby, #screen-room { padding: 16px; }
+.panel.lobby { width: min(800px, 100%); padding: 32px; }
 .lobby-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.lobby-head h2 { margin: 0; }
-.lobby-name { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; }
-.lobby-name input { width: 7em; padding: .35em .6em; font-size: .85rem; }
-.conn { font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
+.lobby-head h2 { margin: 0; font-size: clamp(1.65rem, 4vw, 2rem); }
+.lobby-name { display: flex; align-items: center; gap: 8px; font-size: .95rem; font-weight: 700; }
+.lobby-name input { width: 8.5em; min-height: 48px; padding: .5em .7em; font-size: 1rem; }
+.conn { font-size: .95rem; font-weight: 700; color: var(--ink-soft); }
 .conn.ok { color: var(--green); }
 .conn.bad { color: var(--danger); }
-.lobby-actions { justify-content: flex-start; margin: 14px 0 6px; }
-.room-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 8px; }
+.lobby-actions { justify-content: flex-start; gap: 14px; margin: 20px 0 14px; }
+.lobby-actions .big-btn { min-height: 58px; min-width: 160px; font-size: 1.15rem; }
+.room-list-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 22px 0 12px; }
 .room-list-label { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.room-list-label h3 { margin: 0; font-size: .95rem; }
-.room-list-status { min-width: 0; color: var(--blue-dark); font-size: .75rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-list-label h3 { margin: 0; font-size: 1.1rem; }
+.room-list-status { min-width: 0; color: var(--blue-dark); font-size: .82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .room-list-status.error { color: var(--danger); }
 .room-list-status:empty { display: none; }
 .room-list-head .mini-btn { flex: none; }
+.room-list-head > .mini-btn { min-height: 48px; padding: .55em 1.05em; font-size: .95rem; }
 .mini-btn:disabled { opacity: .6; cursor: wait; }
-.room-list { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow: auto; padding: 2px; }
+.room-list { display: flex; flex-direction: column; gap: 12px; max-height: 50vh; overflow: auto; padding: 2px; }
 .room-card {
   display: flex; align-items: center; gap: 10px; text-align: left;
   background: linear-gradient(180deg, #FFFFFF 0%, #F4FBFE 100%);
-  border: 2px solid var(--line); border-radius: 18px; padding: 12px 14px;
+  border: 2px solid var(--line); border-radius: 20px; padding: 16px 18px; min-height: 72px;
   font: inherit; cursor: pointer; width: 100%;
 }
 .room-card:hover { border-color: #A9DCF0; }
 .room-card .rc-main { flex: 1; min-width: 0; }
-.room-card .rc-name { font-weight: 800; }
-.room-card .rc-sub { font-size: .78rem; color: var(--ink-soft); }
-.room-card .rc-count { font-weight: 800; color: var(--blue-dark); white-space: nowrap; }
-.room-card .rc-tag { font-size: .7rem; border-radius: 999px; padding: 2px 8px; background: #EAF7FD; color: var(--blue-dark); }
+.room-card .rc-name { font-size: 1rem; font-weight: 800; }
+.room-card .rc-sub { font-size: .85rem; color: var(--ink-soft); }
+.room-card .rc-count { font-size: .95rem; font-weight: 800; color: var(--blue-dark); white-space: nowrap; }
+.room-card .rc-tag { font-size: .78rem; border-radius: 999px; padding: 4px 10px; background: #EAF7FD; color: var(--blue-dark); }
 .room-card .rc-tag.playing { background: #FFF1D6; color: #A9711A; }
-.room-empty { text-align: center; color: var(--ink-soft); padding: 24px 8px; font-size: .9rem; }
+.room-empty { text-align: center; color: var(--ink-soft); padding: 46px 12px; font-size: 1rem; line-height: 1.7; }
 
 /* ---------- 房間 ---------- */
 
@@ -395,9 +419,23 @@ body.no-touch .touch { display: none; }
   .board-wrap { padding: 4px 4px 118px; align-items: start; }
 }
 
+@media (max-width: 680px) {
+  .setup-grid { grid-template-columns: 1fr; }
+  .setup-world { grid-column: auto; }
+  .setup-world-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
   #screen-setup, #screen-lobby, #screen-room, #screen-result, #screen-help { padding-top: 70px; }
   .nav-btn { min-height: 44px; padding: .5em .72em; font-size: .8rem; }
+  .panel.lobby { padding: 24px 18px; }
+  .lobby-head { align-items: flex-start; }
+  .lobby-name { font-size: .85rem; }
+  .lobby-name input { min-height: 44px; }
+  .lobby-actions .big-btn { flex: 1; min-width: 0; font-size: 1rem; }
+  .room-list-head { align-items: flex-start; }
+  .room-list-label { flex: 1; flex-wrap: wrap; }
+  .room-list-status { white-space: normal; }
   .panel.room { padding: 20px 16px; }
   .room-section { padding: 14px; }
   .room-setup { grid-template-columns: 1fr; }
