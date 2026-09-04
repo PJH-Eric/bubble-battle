@@ -58,13 +58,8 @@
       const m = mem(p);
 
       if (p.state === 'trapped') {
-        /* 泡泡裡左右交替掙脫，難度高的按得快 */
-        m.wait -= dt;
-        if (m.wait <= 0) {
-          m.struggle = -m.struggle;
-          m.wait = lv.think * 0.35;
-        }
-        return { dx: m.struggle, dy: 0, drop: false };
+        /* 被關住就真的動不了，只能等泡泡破或等隊友來救 */
+        return { dx: 0, dy: 0, drop: false };
       }
       if (p.state !== 'alive') return { dx: 0, dy: 0, drop: false };
 

@@ -157,6 +157,26 @@ input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(53,16
   font-size: .85rem; background-size: 1em; background-position: right .55em center;
 }
 
+
+/* 電腦對手：加減按鈕，不用滑軸 */
+.stepper { display: flex; align-items: center; gap: 14px; }
+.stepper-num { font-size: 1rem; font-weight: 700; min-width: 3.4em; text-align: center; }
+.stepper-num b { color: var(--blue-dark); font-size: 1.3rem; }
+.round-btn {
+  width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
+  font: 700 1.5rem/1 system-ui, sans-serif; color: #fff; background: var(--blue);
+  box-shadow: 0 4px 0 var(--blue-dark); display: grid; place-items: center;
+  transition: transform .08s, box-shadow .08s;
+}
+.round-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--blue-dark); }
+.round-btn:disabled { background: #CFE3EC; box-shadow: 0 4px 0 #B7D2DE; cursor: default; transform: none; }
+.kill-btn {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; cursor: pointer;
+  border: 2px solid #F0D2D6; background: #fff; color: var(--danger);
+  font: 700 1rem/1 system-ui, sans-serif;
+}
+.kill-btn:hover { background: #FDF0F1; }
+
 /* ---------- 對戰畫面 ---------- */
 
 .screen.game { display: none; }

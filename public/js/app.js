@@ -88,14 +88,7 @@
     for (const f of Fields.FIELDS) fieldSel.appendChild(new Option(f.name, f.id));
     fieldSel.value = store.field;
 
-    const range = $('#in-ai-count');
-    range.value = store.aiCount;
-    range.addEventListener('input', () => {
-      $('#ai-count-label').textContent = range.value;
-      buildAiLevels(Number(range.value));
-    });
-    $('#ai-count-label').textContent = range.value;
-    buildAiLevels(Number(range.value));
+    buildAiLevels(Math.min(7, Math.max(1, Number(store.aiCount) || 3)));
   }
 
   let aiLevels = [];
@@ -107,8 +100,12 @@
   }
 
   function buildAiLevels(n) {
+    n = Math.min(7, Math.max(1, n));
     while (aiLevels.length < n) aiLevels.push(store.aiLevel);
     aiLevels = aiLevels.slice(0, n);
+    $('#ai-count-label').textContent = aiLevels.length;
+    $('#ai-minus').disabled = aiLevels.length <= 1;
+    $('#ai-plus').disabled = aiLevels.length >= 7;
     const box = $('#ai-levels');
     box.innerHTML = '';
     aiLevels.forEach((lv, i) => {
@@ -128,7 +125,19 @@
       sel.value = lv;
       sel.addEventListener('change', () => { aiLevels[i] = sel.value; });
 
-      label.append(avatar, name, sel);
+      const kill = document.createElement('button');
+      kill.type = 'button';
+      kill.className = 'kill-btn';
+      kill.title = '移除這個電腦對手';
+      kill.setAttribute('aria-label', '移除 ' + ch.name);
+      kill.textContent = '×';
+      kill.addEventListener('click', () => {
+        if (aiLevels.length <= 1) return;
+        aiLevels.splice(i, 1);
+        buildAiLevels(aiLevels.length);
+      });
+
+      label.append(avatar, name, sel, kill);
       box.appendChild(label);
     });
   }
@@ -231,9 +240,9 @@
         case 'item': if (e.by === meId) { audio.play('item'); flash(itemText(e.item)); } break;
         case 'trap':
           audio.play('trap');
-          flash(e.by === meId ? '被困住了！左右交替按可以掙脫' : nameOf(e.by) + ' 被困住了');
+          flash(e.by === meId ? '被困住了！等泡泡破掉、等隊友來救，或用身上的針' : nameOf(e.by) + ' 被困住了');
           break;
-        case 'free': audio.play('free'); if (e.by === meId) flash('脫困！短暫無敵'); break;
+        case 'free': audio.play('free'); if (e.by === meId) flash(e.how === 'needle' ? '用針戳破泡泡脫困！' : '脫困！短暫無敵'); break;
         case 'dead': audio.play('dead'); flash(nameOf(e.by) + ' 出局'); break;
         case 'over': audio.play('win'); break;
       }
@@ -242,7 +251,7 @@
 
   function itemText(type) {
     return ({
-      bomb: '水球 +1', power: '威力 +1', shoe: '跑得更快了', needle: '拿到針',
+      bomb: '水球 +1', power: '威力 +1', shoe: '跑得更快了', needle: '拿到針！被關住時可以自己戳破泡泡（用一次）',
       shield: '無敵 3 秒！', turtle: '烏龜！變慢了', mini: '迷你水球！威力被壓成 1', reverse: '亂步鞋！方向相反'
     })[type] || '';
   }
@@ -298,7 +307,7 @@
       $('#sum-mine').innerHTML =
         '水球 <b>' + me.bombMax + '</b>　威力 <b>' + me.power + '</b><br>' +
         '速度 <b>' + me.speed.toFixed(2) + '</b>　破箱 <b>' + me.stats.boxes + '</b>' +
-        (me.needle ? '<br>持有：針' : '');
+        (me.needle ? '<br>持有：<b>針</b>（被關住時自動脫困一次）' : '');
     }
 
     if (flashTimer > 0) {
@@ -352,7 +361,7 @@
     $('#help-body').innerHTML = [
       '<h3>怎麼動</h3><p>電腦：方向鍵或 WASD 移動，空白鍵放水球。平板手機：左下搖桿移動，右下大鈕放水球（設定裡可以改成全螢幕滑動）。</p>',
       '<h3>水球會怎麼炸</h3><p>放下去 3 秒後爆炸，水柱往上下左右噴，長度就是你的「威力」。硬塊擋得住、軟箱會被炸掉，炸到別顆水球會連鎖引爆。<b>不會事先顯示範圍</b>，水球越跳越快就是要爆了。</p>',
-      '<h3>被水柱噴到會怎樣</h3><p>先變成<b>水球泡泡</b>被困住 3.5 秒，這時<b>左右方向交替按</b>可以加快掙脫；脫困後有 1.5 秒無敵。但泡泡狀態下再被炸一次就<b>真的出局</b>。一個人玩的時候沒有人能救你。</p>',
+      '<h3>被水柱噴到會怎樣</h3><p>先變成<b>水球泡泡</b>被困住 3.5 秒，這段時間<b>完全不能動、也不能自己掙脫</b>，只能等泡泡自己破掉、靠<b>隊友</b>（組隊模式）走到你身上把你救出來，或是身上剛好有<b>針</b>——有針的話會自己戳破泡泡立刻脫困，針用掉就沒了。脫困後有 1.5 秒無敵，但泡泡狀態下再被炸一次就<b>真的出局</b>。</p>',
       '<h3>道具</h3><p><b>圓底</b>是好道具：水球+1、威力+1、溜冰鞋、針、護盾糖。<b>三角底</b>是壞道具：烏龜（變慢）、迷你水球（威力剩 1）、亂步鞋（方向相反）。被淘汰的人會噴出一半道具給大家撿。</p>',
       '<h3>怎麼算贏</h3><p>最後一個沒出局的人獲勝。一局最長 3 分鐘，時間到就比誰還活著、再比誰炸的箱子多。<b>對局中地圖不會自己改變</b>，只有被你們炸掉的軟箱會消失。</p>'
     ].join('');
@@ -426,7 +435,7 @@
     $('#btn-start').addEventListener('click', () => {
       audio.unlock();
       store.nickname = $('#in-nickname').value.trim();
-      store.aiCount = Number($('#in-ai-count').value);
+      store.aiCount = aiLevels.length;
       store.aiLevel = aiLevels[0] || 'normal';
       store.mapPick = $('#in-map').value;
       store.field = $('#in-field').value;
@@ -447,6 +456,9 @@
       store.seenRotateTip = true;
       Store.save(store);
     });
+
+    $('#ai-plus').addEventListener('click', () => buildAiLevels(aiLevels.length + 1));
+    $('#ai-minus').addEventListener('click', () => buildAiLevels(aiLevels.length - 1));
 
     input.attach({
       stick: $('#stick'), knob: $('#knob'), stickWrap: $('#stick-wrap'),

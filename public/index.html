@@ -48,8 +48,12 @@
     </div>
 
     <div class="field">
-      <span>電腦對手 <b id="ai-count-label">3</b> 個</span>
-      <input id="in-ai-count" type="range" min="1" max="7" step="1" value="3">
+      <span>電腦對手</span>
+      <div class="stepper">
+        <button type="button" class="round-btn" id="ai-minus" aria-label="少一個電腦">−</button>
+        <span class="stepper-num"><b id="ai-count-label">3</b> 個</span>
+        <button type="button" class="round-btn" id="ai-plus" aria-label="多一個電腦">＋</button>
+      </div>
       <div id="ai-levels" class="ai-levels"></div>
     </div>
 

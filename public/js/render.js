@@ -319,8 +319,8 @@
       const g = el('g', null, layers.actors);
 
       const ring = el('g', { opacity: 0 }, g);
-      el('circle', { cy: 0.2, r: 0.3, fill: 'url(#ownGlow)' }, ring);
-      el('ellipse', { cy: 0.24, rx: 0.3, ry: 0.11, fill: 'none', stroke: '#FFC42E', 'stroke-width': 0.06 }, ring);
+      el('circle', { cy: 0.18, r: 0.29, fill: 'url(#ownGlow)' }, ring);
+      el('ellipse', { cy: 0.26, rx: 0.32, ry: 0.115, fill: 'none', stroke: '#FFC42E', 'stroke-width': 0.06 }, ring);
       const teamMark = el('g', { opacity: 0 }, g);
       el('circle', { cy: 0.3, r: 0.3, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 0.06 }, teamMark);
 
@@ -344,8 +344,8 @@
       bubble._fizz = fizz;
 
       const label = el('text', {
-        y: -0.42, 'text-anchor': 'middle', 'font-size': 0.16,
-        fill: '#3B3B44', stroke: '#FFFFFF', 'stroke-width': 0.08,
+        y: -0.355, 'text-anchor': 'middle', 'font-size': 0.15,
+        fill: '#3B3B44', stroke: '#FFFFFF', 'stroke-width': 0.09,
         'paint-order': 'stroke', 'font-weight': '700'
       }, g);
 
@@ -395,7 +395,10 @@
           const parts = node._parts;
 
           /* 走路時上下輕輕彈一下 */
-          const SCALE = 0.88;  /* 盡量大，但腳下光環與影子都收在自己的格子裡 */
+          /* 角色畫成跟一格一樣大：本體高度 0.945 → 放大到 1.0 格再垂直置中，
+             上下剛好貼齊格子邊界，就不會溢出到旁邊的格子 */
+          const SCALE = 1.05;
+          const LIFT = -0.03;  /* 身體重心比幾何中心低一點，往上抬一點才置中 */
           const walking = p.moving && p.state === 'alive';
           const swing = walking ? Math.sin(state.time * 11) : 0;
           const bob = walking ? Math.abs(Math.sin(state.time * 11)) * 0.045 : 0;
@@ -406,7 +409,7 @@
           L.armR.setAttribute('transform', 'rotate(' + (swing * 18).toFixed(1) + ' 0.235 0.08)');
           const lean = p.dir === 'left' ? -0.04 : p.dir === 'right' ? 0.04 : 0;
           parts.body.setAttribute('transform',
-            'translate(' + lean + ',' + (-bob) + ') scale(' + SCALE + ')');
+            'translate(' + lean + ',' + (LIFT - bob).toFixed(3) + ') scale(' + SCALE + ')');
           parts.face.setAttribute('transform', 'translate(' + (lean * 1.6) + ',' + (p.dir === 'up' ? -0.03 : 0) + ')');
 
           parts.bubble.setAttribute('opacity', p.state === 'trapped' ? 1 : 0);
@@ -422,7 +425,7 @@
               'translate(0,' + float.toFixed(3) + ') scale(' + sx.toFixed(3) + ',' + sy.toFixed(3) + ')');
             /* 被關在裡面的人一邊浮一邊扭 */
             parts.body.setAttribute('transform',
-              'translate(0,' + float.toFixed(3) + ') rotate(' + tilt.toFixed(1) + ') scale(' + (SCALE * 0.88) + ')');
+              'translate(0,' + (LIFT + float).toFixed(3) + ') rotate(' + tilt.toFixed(1) + ') scale(' + (SCALE * 0.82).toFixed(3) + ')');
             /* 往上冒的小氣泡 */
             const fz = parts.bubble._fizz;
             for (let i = 0; i < fz.length; i++) {

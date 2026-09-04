@@ -33,9 +33,6 @@
     BLAST_TTL: 0.5,        /* 水柱殘留（仍有傷害判定） */
     TRAP_SOLO: 3.5,        /* 個人混戰：泡泡 3.5 秒，不能互救 */
     TRAP_TEAM: 5.0,        /* 組隊：泡泡 5 秒，隊友可救 */
-    STRUGGLE_SOLO: 0.30,   /* 左右交替掙脫，每次扣的秒數 */
-    STRUGGLE_TEAM: 0.25,
-    STRUGGLE_CD: 0.12,     /* 輸入冷卻，防連打作弊 */
     INVULN: 1.5,           /* 脫困後的無敵 */
     EFFECT_TURTLE: 8,
     EFFECT_MINI: 8,
@@ -136,8 +133,6 @@
         moving: false,
         state: 'alive',
         trapTimer: 0,
-        struggleCd: 0,
-        lastStruggle: 0,
         invuln: 0,
         bombMax: C.BASE_BOMBS,
         power: C.BASE_POWER,
@@ -435,7 +430,6 @@
       if (p.state === 'dead') continue;
       p.aliveTime = s.time;
       if (p.invuln > 0) p.invuln = Math.max(0, p.invuln - dt);
-      if (p.struggleCd > 0) p.struggleCd = Math.max(0, p.struggleCd - dt);
       for (const k of ['turtle', 'mini', 'reverse']) {
         if (p.effects[k] > 0) p.effects[k] = Math.max(0, p.effects[k] - dt);
       }
@@ -445,15 +439,15 @@
       if (p.effects.reverse > 0) { dx = -dx; dy = -dy; }
 
       if (p.state === 'trapped') {
-        /* 左右交替掙脫 */
-        if (dx !== 0 && dx !== p.lastStruggle && p.struggleCd <= 0) {
-          p.trapTimer -= (s.mode === 'team' ? C.STRUGGLE_TEAM : C.STRUGGLE_SOLO);
-          p.struggleCd = C.STRUGGLE_CD;
-          p.lastStruggle = dx;
-          s.events.push({ type: 'struggle', by: p.id });
+        /* 身上有針 → 自己戳破泡泡脫困，針就用掉了。針只能自救，救不了別人。 */
+        if (p.needle) {
+          p.needle = false;
+          freePlayer(s, p, 'needle');
+          continue;
         }
+        /* 沒有針就動不了：不能掙脫，只能等泡泡自己破，或等隊友走過來救 */
         p.trapTimer -= dt;
-        if (p.trapTimer <= 0) freePlayer(s, p, 'self');
+        if (p.trapTimer <= 0) freePlayer(s, p, 'timeout');
         continue;
       }
 
@@ -561,7 +555,7 @@
           if (q.state !== 'alive' || q.team !== p.team || q.id === p.id) continue;
           const qc = cellOf(q);
           const dist = Math.abs(qc.c - pc.c) + Math.abs(qc.r - pc.r);
-          if (dist === 0 || (q.needle && dist === 1)) {
+          if (dist === 0) {   /* 一定要走到泡泡上；針是自救用的，救不了隊友 */
             q.stats.rescues++;
             freePlayer(s, p, 'rescue');
             break;
@@ -579,8 +573,6 @@
   function trapPlayer(s, p) {
     p.state = 'trapped';
     p.trapTimer = s.mode === 'team' ? C.TRAP_TEAM : C.TRAP_SOLO;
-    p.struggleCd = 0;
-    p.lastStruggle = 0;
     p.stats.trapped++;
     /* 同一道水柱只把人困住，不會順手補刀：撐過這道水柱殘留的時間 */
     p.invuln = C.BLAST_TTL + 0.1;

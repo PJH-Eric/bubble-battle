@@ -249,18 +249,41 @@ group('泡泡、掙脫與淘汰');
   run(s2, 3.2);
   eq(d.state, 'dead', '泡泡狀態再被炸一次就出局');
 
-  /* 掙脫：左右交替會比乾等快 */
+  /* 被關住不能自救：亂按方向鍵不會比乾等快，也不會移動 */
   const mk = () => {
-    const st = makeState(['#####', '#0..#', '#####']);
+    const st = makeState(['#######', '#0....#', '#######']);
     st.players[0].state = 'trapped';
     st.players[0].trapTimer = Rules.C.TRAP_SOLO;
     return st;
   };
   const lazy = mk(); run(lazy, 1.0);
   const busy = mk();
+  const startX = busy.players[0].x;
   let dir = 1;
   run(busy, 1.0, (t) => { dir = Math.floor(t / 0.14) % 2 ? 1 : -1; return { p0: { dx: dir, dy: 0 } }; });
-  ok(busy.players[0].trapTimer < lazy.players[0].trapTimer - 0.5, '左右交替按可以明顯加快掙脫');
+  near(busy.players[0].trapTimer, lazy.players[0].trapTimer, 0.001, '亂按方向鍵不會加快脫困（不能自救）');
+  eq(busy.players[0].x, startX, '被關住的時候完全不能移動');
+
+  /* 針：只能自救，而且用完就沒了 */
+  const nd = makeState(['#######', '#0....#', '#######']);
+  nd.players[0].needle = true;
+  nd.players[0].state = 'trapped';
+  nd.players[0].trapTimer = Rules.C.TRAP_SOLO;
+  nd.players[0].invuln = 0;
+  run(nd, 0.1);
+  eq(nd.players[0].state, 'alive', '身上有針被關住時會自己戳破泡泡');
+  eq(nd.players[0].needle, false, '針用掉就沒了');
+
+  const nd2 = makeState(['##########', '#0...1..2#', '##########'], { mode: 'team', teams: [0, 0, 1] });
+  nd2.players[1].needle = true;
+  nd2.players[0].state = 'trapped';
+  nd2.players[0].trapTimer = 5;
+  nd2.players[0].invuln = 0;
+  /* 隊友帶著針站在隔壁格，不能隔空救人 */
+  nd2.players[1].x = 2.5; nd2.players[1].y = 1.5;
+  run(nd2, 0.3);
+  eq(nd2.players[0].state, 'trapped', '隊友的針救不了你，一定要走到泡泡上');
+
   eq(Rules.C.TRAP_SOLO, 3.5, '個人混戰的泡泡時間是 3.5 秒');
   eq(Rules.C.TRAP_TEAM, 5.0, '組隊模式的泡泡時間是 5 秒');
 }
