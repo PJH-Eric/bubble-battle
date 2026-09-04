@@ -225,7 +225,6 @@
           break;
         case 'free': audio.play('free'); if (e.by === meId) flash('脫困！短暫無敵'); break;
         case 'dead': audio.play('dead'); flash(nameOf(e.by) + ' 出局'); break;
-        case 'rise-start': audio.play('rise'); flash('水位開始上升，外圈會慢慢消失！'); break;
         case 'over': audio.play('win'); break;
       }
     }
@@ -255,7 +254,6 @@
     const mm = Math.floor(left / 60), ss = Math.floor(left % 60);
     const clock = $('#clock');
     clock.textContent = mm + ':' + String(ss).padStart(2, '0');
-    clock.classList.toggle('rising', state.rise.active);
 
     const list = $('#sum-players');
     if (list.children.length !== state.players.length) {
@@ -346,7 +344,7 @@
       '<h3>水球會怎麼炸</h3><p>放下去 3 秒後爆炸，水柱往上下左右噴，長度就是你的「威力」。硬塊擋得住、軟箱會被炸掉，炸到別顆水球會連鎖引爆。<b>不會事先顯示範圍</b>，水球越跳越快就是要爆了。</p>',
       '<h3>被水柱噴到會怎樣</h3><p>先變成<b>水球泡泡</b>被困住 3.5 秒，這時<b>左右方向交替按</b>可以加快掙脫；脫困後有 1.5 秒無敵。但泡泡狀態下再被炸一次就<b>真的出局</b>。一個人玩的時候沒有人能救你。</p>',
       '<h3>道具</h3><p><b>圓底</b>是好道具：水球+1、威力+1、溜冰鞋、針、護盾糖。<b>三角底</b>是壞道具：烏龜（變慢）、迷你水球（威力剩 1）、亂步鞋（方向相反）。被淘汰的人會噴出一半道具給大家撿。</p>',
-      '<h3>怎麼算贏</h3><p>最後一個沒出局的人獲勝。一局 3 分鐘，最後 45 秒<b>水位開始上升</b>，最外圈會一圈一圈變成硬塊，逼大家到中間決勝負。</p>'
+      '<h3>怎麼算贏</h3><p>最後一個沒出局的人獲勝。一局最長 3 分鐘，時間到就比誰還活著、再比誰炸的箱子多。<b>對局中地圖不會自己改變</b>，只有被你們炸掉的軟箱會消失。</p>'
     ].join('');
   }
 

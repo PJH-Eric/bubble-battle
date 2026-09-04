@@ -319,8 +319,8 @@
       const g = el('g', null, layers.actors);
 
       const ring = el('g', { opacity: 0 }, g);
-      el('circle', { cy: 0.26, r: 0.44, fill: 'url(#ownGlow)' }, ring);
-      el('ellipse', { cy: 0.28, rx: 0.4, ry: 0.16, fill: 'none', stroke: '#FFC42E', 'stroke-width': 0.08 }, ring);
+      el('circle', { cy: 0.16, r: 0.28, fill: 'url(#ownGlow)' }, ring);
+      el('ellipse', { cy: 0.2, rx: 0.27, ry: 0.1, fill: 'none', stroke: '#FFC42E', 'stroke-width': 0.055 }, ring);
       const teamMark = el('g', { opacity: 0 }, g);
       el('circle', { cy: 0.3, r: 0.3, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 0.06 }, teamMark);
 
@@ -332,11 +332,19 @@
 
       /* 泡泡（被困住時才顯示） */
       const bubble = el('g', { opacity: 0 }, g);
-      el('circle', { cy: -0.02, r: 0.5, fill: 'url(#bubbleGrad)', stroke: '#7FD8F5', 'stroke-width': 0.04 }, bubble);
-      el('ellipse', { cx: -0.16, cy: -0.2, rx: 0.1, ry: 0.06, fill: '#FFFFFF', opacity: 0.85, transform: 'rotate(-30)' }, bubble);
+      const shell = el('g', null, bubble);
+      el('circle', { cy: -0.01, r: 0.38, fill: 'url(#bubbleGrad)', stroke: '#7FD8F5', 'stroke-width': 0.032 }, shell);
+      el('ellipse', { cx: -0.14, cy: -0.18, rx: 0.085, ry: 0.05, fill: '#FFFFFF', opacity: 0.85, transform: 'rotate(-30)' }, shell);
+      el('ellipse', { cx: 0.13, cy: 0.12, rx: 0.05, ry: 0.03, fill: '#FFFFFF', opacity: 0.5, transform: 'rotate(-30)' }, shell);
+      const fizz = [];
+      for (let i = 0; i < 4; i++) {
+        fizz.push(el('circle', { r: 0.035 + (i % 2) * 0.018, fill: '#FFFFFF', opacity: 0.7 }, bubble));
+      }
+      bubble._shell = shell;
+      bubble._fizz = fizz;
 
       const label = el('text', {
-        y: -0.5, 'text-anchor': 'middle', 'font-size': 0.22,
+        y: -0.38, 'text-anchor': 'middle', 'font-size': 0.17,
         fill: '#3B3B44', stroke: '#FFFFFF', 'stroke-width': 0.08,
         'paint-order': 'stroke', 'font-weight': '700'
       }, g);
@@ -387,6 +395,7 @@
           const parts = node._parts;
 
           /* 走路時上下輕輕彈一下 */
+          const SCALE = 0.72;  /* 視覺縮到一格以內，才不會蓋到旁邊的格子 */
           const walking = p.moving && p.state === 'alive';
           const swing = walking ? Math.sin(state.time * 11) : 0;
           const bob = walking ? Math.abs(Math.sin(state.time * 11)) * 0.045 : 0;
@@ -396,13 +405,33 @@
           L.armL.setAttribute('transform', 'rotate(' + (-swing * 18).toFixed(1) + ' -0.235 0.08)');
           L.armR.setAttribute('transform', 'rotate(' + (swing * 18).toFixed(1) + ' 0.235 0.08)');
           const lean = p.dir === 'left' ? -0.04 : p.dir === 'right' ? 0.04 : 0;
-          parts.body.setAttribute('transform', 'translate(' + lean + ',' + (-bob) + ')');
+          parts.body.setAttribute('transform',
+            'translate(' + lean + ',' + (-bob) + ') scale(' + SCALE + ')');
           parts.face.setAttribute('transform', 'translate(' + (lean * 1.6) + ',' + (p.dir === 'up' ? -0.03 : 0) + ')');
 
           parts.bubble.setAttribute('opacity', p.state === 'trapped' ? 1 : 0);
           if (p.state === 'trapped') {
-            const wob = 1 + Math.sin(state.time * 7) * 0.05;
-            parts.bubble.setAttribute('transform', 'scale(' + wob.toFixed(3) + ')');
+            const t = state.time;
+            /* 快要脫困時晃得更用力 */
+            const urgency = 1 + Math.max(0, 1 - p.trapTimer / 2) * 1.1;
+            const float = Math.sin(t * 2.6) * 0.055;
+            const sx = 1 + Math.sin(t * 5.5 * urgency) * 0.07 * urgency;
+            const sy = 1 - Math.sin(t * 5.5 * urgency) * 0.07 * urgency;
+            const tilt = Math.sin(t * 3.2 * urgency) * 7 * urgency;
+            parts.bubble.setAttribute('transform',
+              'translate(0,' + float.toFixed(3) + ') scale(' + sx.toFixed(3) + ',' + sy.toFixed(3) + ')');
+            /* 被關在裡面的人一邊浮一邊扭 */
+            parts.body.setAttribute('transform',
+              'translate(0,' + float.toFixed(3) + ') rotate(' + tilt.toFixed(1) + ') scale(' + (SCALE * 0.88) + ')');
+            /* 往上冒的小氣泡 */
+            const fz = parts.bubble._fizz;
+            for (let i = 0; i < fz.length; i++) {
+              const ph = (t * (0.7 + i * 0.17) + i * 0.31) % 1;
+              const x = (i % 2 ? 0.16 : -0.17) + Math.sin((t + i) * 3) * 0.03;
+              fz[i].setAttribute('cx', x.toFixed(3));
+              fz[i].setAttribute('cy', (0.3 - ph * 0.62).toFixed(3));
+              fz[i].setAttribute('opacity', (0.75 * (1 - ph)).toFixed(2));
+            }
           }
 
           /* 自己：腳下實心光環。隊友／對手在組隊模式用虛線／鋸齒圈區分 */

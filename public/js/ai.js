@@ -17,19 +17,23 @@
   const LEVELS = {
     baby: {
       label: '幼幼班', think: 0.55, margin: 2.6,
-      hunt: 0, finish: false, retreat: 3, bombChance: 0.35, boxHunger: 1
+      hunt: 0, finish: false, retreat: 3, bombChance: 0.35,
+      avoidBad: false, predict: false, kick: false, trap: false
     },
     easy: {
       label: '簡單', think: 0.60, margin: 2.2,
-      hunt: 3, finish: false, retreat: 0, bombChance: 0.6, boxHunger: 1
+      hunt: 3, finish: false, retreat: 0, bombChance: 0.6,
+      avoidBad: false, predict: false, kick: false, trap: false
     },
     normal: {
       label: '普通', think: 0.30, margin: 1.7,
-      hunt: 5, finish: true, retreat: 0, bombChance: 0.85, boxHunger: 1
+      hunt: 5, finish: true, retreat: 0, bombChance: 0.85,
+      avoidBad: true, predict: false, kick: true, trap: true
     },
     hard: {
       label: '困難', think: 0.12, margin: 1.25,
-      hunt: 8, finish: true, retreat: 0, bombChance: 1, boxHunger: 1.4
+      hunt: 9, finish: true, retreat: 0, bombChance: 1,
+      avoidBad: true, predict: true, kick: true, trap: true
     }
   };
 
@@ -95,8 +99,13 @@
       return { move: leastBad(state, here, danger), drop: false };
     }
 
-    /* 2. 撿看得到的道具 */
-    const item = nearestOf(state, nav, (c, r) => !!Rules.itemAt(state, c, r), 8);
+    /* 2. 撿看得到的道具（普通以上會避開烏龜、迷你水球、亂步鞋） */
+    const item = nearestOf(state, nav, (c, r) => {
+      const it = Rules.itemAt(state, c, r);
+      if (!it) return false;
+      if (lv.avoidBad && BAD.has(it.type)) return false;
+      return true;
+    }, 8);
     if (item) return { move: stepToward(nav, item), drop: false };
 
     /* 3. 對手 */
@@ -119,8 +128,28 @@
       }
 
       if (lv.hunt && d <= lv.hunt) {
-        if (d <= 1 && canBombSafely(state, p, danger, lv) && Math.random() < lv.bombChance) {
-          return { move: { dx: 0, dy: 0 }, drop: true };
+        /* 有手套就先想想能不能直接把旁邊的水球踢向對手 */
+        if (lv.kick && p.glove) {
+          const kickDir = kickToward(state, p, near.cell);
+          if (kickDir) return { move: kickDir, drop: false };
+        }
+        if (canBombSafely(state, p, danger, lv)) {
+          const here2 = Rules.cellOf(p);
+          const blast = blastIfPlaced(state, here2, p.effects.mini > 0 ? 1 : p.power);
+          const hitsMate = state.mode === 'team' && state.players.some(q =>
+            q.team === p.team && q.id !== p.id && q.state !== 'dead'
+            && blast.has(keyOf(Rules.cellOf(q))));
+          const catches = blast.has(keyOf(near.cell));
+          const escapes = lv.trap ? escapeCount(state, near.cell, blast, 3) : 9;
+          if (!hitsMate && catches && (near.player.state === 'trapped' || escapes <= 1 || d <= 2)
+            && Math.random() < lv.bombChance) {
+            return { move: { dx: 0, dy: 0 }, drop: true };
+          }
+        }
+        /* 困難：距離還遠的時候先去堵對手的出路，貼身時就正面壓上去 */
+        if (lv.predict && d >= 3) {
+          const cut = blockingStep(state, nav, near.cell, danger, lv);
+          if (cut) return { move: cut, drop: false };
         }
         return { move: stepToward(nav, near.cell), drop: false };
       }
@@ -144,6 +173,94 @@
 
     /* 6. 沒事做就走動，別站著等死 */
     return { move: wander(state, here, danger, lv.margin), drop: false };
+  }
+
+  const BAD = new Set(['turtle', 'mini', 'reverse']);
+  const keyOf = cell => cell.c + ':' + cell.r;
+
+  /** 在某一格放球會炸到哪些格子（含連鎖引爆旁邊的球） */
+  function blastIfPlaced(state, cell, power) {
+    const cells = new Set();
+    const queue = [{ c: cell.c, r: cell.r, power }];
+    const done = new Set();
+    while (queue.length) {
+      const b = queue.shift();
+      const bk = b.c + ':' + b.r;
+      if (done.has(bk)) continue;
+      done.add(bk);
+      cells.add(bk);
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        for (let n = 1; n <= b.power; n++) {
+          const c = b.c + dc * n, r = b.r + dr * n;
+          const t = Rules.tileAt(state, c, r);
+          if (t === Rules.HARD || t === Rules.SOFT) break;
+          cells.add(c + ':' + r);
+          const other = Rules.bombAt(state, c, r);
+          if (other) { queue.push({ c, r, power: other.power }); break; }
+        }
+      }
+    }
+    return cells;
+  }
+
+  /** 對手在幾步之內還有沒有安全格可以躲 */
+  function escapeCount(state, from, blast, steps) {
+    let frontier = [[from.c, from.r]];
+    const seen = new Set([from.c + ':' + from.r]);
+    let safe = 0;
+    for (let i = 0; i < steps; i++) {
+      const next = [];
+      for (const [c, r] of frontier) {
+        for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nc = c + dc, nr = r + dr, k = nc + ':' + nr;
+          if (seen.has(k) || !Rules.walkable(state, nc, nr)) continue;
+          seen.add(k);
+          if (!blast.has(k)) safe++;
+          else next.push([nc, nr]);
+        }
+      }
+      frontier = next;
+    }
+    return safe;
+  }
+
+  /** 旁邊有沒有水球可以往對手的方向踢 */
+  function kickToward(state, p, foeCell) {
+    const here = Rules.cellOf(p);
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const b = Rules.bombAt(state, here.c + dc, here.r + dr);
+      if (!b || b.moveDir) continue;
+      if (b.pass.indexOf(p.id) !== -1) continue;
+      /* 對手要在這顆球被踢出去的那條線上 */
+      if (dc !== 0 && foeCell.r === here.r && Math.sign(foeCell.c - here.c) === dc) return { dx: dc, dy: 0 };
+      if (dr !== 0 && foeCell.c === here.c && Math.sign(foeCell.r - here.r) === dr) return { dx: 0, dy: dr };
+    }
+    return null;
+  }
+
+  /** 困難才會做的封路：站到對手出路較少的那一側 */
+  function blockingStep(state, nav, foeCell, danger, lv) {
+    const options = [];
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const c = foeCell.c + dc, r = foeCell.r + dr;
+      const k = nav.k(c, r);
+      if (!nav.dist.has(k)) continue;
+      if (danger[Rules.idx(state, c, r)] < lv.margin) continue;
+      options.push({ c, r, d: nav.dist.get(k), exits: freeNeighbours(state, { c, r }) });
+    }
+    if (!options.length) return null;
+    options.sort((a, b) => (a.d - b.d) || (a.exits - b.exits));
+    const pick = options[0];
+    if (pick.d > 4) return null;
+    return stepToward(nav, pick);
+  }
+
+  function freeNeighbours(state, cell) {
+    let n = 0;
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (Rules.walkable(state, cell.c + dc, cell.r + dr)) n++;
+    }
+    return n;
   }
 
   /* ---------- 尋路 ---------- */

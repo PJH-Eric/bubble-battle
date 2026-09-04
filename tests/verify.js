@@ -285,7 +285,7 @@ group('組隊救援');
 }
 
 /* ---------------------------------------------------------- */
-group('淘汰掉落與水位上升');
+group('淘汰掉落與地圖穩定性');
 {
   const s = makeState(['#######', '#0...1#', '#######']);
   const a = s.players[0];
@@ -300,12 +300,12 @@ group('淘汰掉落與水位上升');
   ok(s.items.length > before, '被淘汰時會噴出道具');
   eq(s.items.length, 4, '噴出的是一半道具（4+3+2 共 9 個，取一半 4 個）');
 
-  const s2 = makeState(['#####', '#0.1#', '#####'], { duration: 50 });
-  s2.time = 49;
-  s2.rise.timer = 0;
-  Rules.step(s2, {}, Rules.STEP);
-  ok(s2.rise.active, '剩下 45 秒內會開始水位上升');
-  ok(s2.tiles.filter(v => v === Rules.HARD).length > 12, '水位上升會把外圈變成硬塊');
+  const s2 = makeState(['#######', '#0...1#', '#######'], { duration: 20 });
+  const hardBefore = s2.tiles.filter(v => v === Rules.HARD).length;
+  run(s2, 21);
+  const hardAfter = s2.tiles.filter(v => v === Rules.HARD).length;
+  eq(hardAfter, hardBefore, '對局進行中地圖不會自己長出硬塊（沒有水位上升這種事）');
+  ok(!('rise' in s2), '狀態裡已經沒有水位上升這個東西');
 }
 
 /* ---------------------------------------------------------- */
@@ -322,7 +322,6 @@ group('勝負');
 
   const t = makeState(['#####', '#0.1#', '#####'], { duration: 60 });
   t.time = 59.8;
-  t.rise.cells = [];          /* 這個測試只看時間到的判定，先不讓水位吃格子 */
   t.players[0].stats.boxes = 5;
   t.players[1].stats.boxes = 2;
   run(t, 0.5);

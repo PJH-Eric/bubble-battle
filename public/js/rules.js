@@ -37,8 +37,6 @@
     STRUGGLE_TEAM: 0.25,
     STRUGGLE_CD: 0.12,     /* 輸入冷卻，防連打作弊 */
     INVULN: 1.5,           /* 脫困後的無敵 */
-    RISE_LEAD: 45,         /* 最後幾秒開始水位上升 */
-    RISE_INTERVAL: 1.2,    /* 每幾秒吃掉一格 */
     EFFECT_TURTLE: 8,
     EFFECT_MINI: 8,
     EFFECT_REVERSE: 5,
@@ -106,7 +104,7 @@
       mapId: map.mapId, mapName: map.mapName, mapDesc: map.mapDesc,
       spawns: map.spawns,
       mode: cfg.mode === 'team' ? 'team' : 'solo',
-      duration: cfg.duration || 180,
+      duration: cfg.duration || 180,   /* 對局中地圖不會自己長出東西，時間到就比分 */
       negativeItems: cfg.negativeItems !== false,
       time: 0,
       tick: 0,
@@ -119,7 +117,6 @@
       blasts: [],
       items: [],
       nextBombId: 1,
-      rise: { active: false, timer: 0, index: 0, cells: riseOrder(cols, rows) },
       rng: RNG.create(seed + ':play'),
       events: []
     };
@@ -155,20 +152,6 @@
     });
 
     return state;
-  }
-
-  /** 水位上升的吃格順序：由最外圈往內，一圈一圈順時針 */
-  function riseOrder(cols, rows) {
-    const cells = [];
-    let c0 = 1, r0 = 1, c1 = cols - 2, r1 = rows - 2;
-    while (c0 <= c1 && r0 <= r1) {
-      for (let c = c0; c <= c1; c++) cells.push([c, r0]);
-      for (let r = r0 + 1; r <= r1; r++) cells.push([c1, r]);
-      if (r1 > r0) for (let c = c1 - 1; c >= c0; c--) cells.push([c, r1]);
-      if (c1 > c0) for (let r = r1 - 1; r > r0; r--) cells.push([c0, r]);
-      c0++; r0++; c1--; r1--;
-    }
-    return cells;
   }
 
   /* ---------- 碰撞與移動 ---------- */
@@ -271,11 +254,18 @@
   /** 滑動中的水球下一格能不能過 */
   function blockedForBomb(s, bomb, c, r) {
     if (tileAt(s, c, r) !== EMPTY) return true;
-    for (const other of s.bombs) if (other !== bomb && other.c === c && other.r === r) return true;
+    /* 別顆水球（含正在滑的） */
+    for (const other of s.bombs) {
+      if (other === bomb) continue;
+      if (other.c === c && other.r === r) return true;
+      if (Math.abs(other.px - (c + 0.5)) < 0.85 && Math.abs(other.py - (r + 0.5)) < 0.85
+        && Math.round(other.px - 0.5) === c && Math.round(other.py - 0.5) === r) return true;
+    }
+    /* 人：用身體範圍判定，不只看中心點在哪一格，才不會從人身上滑過去 */
+    const R = C.PLAYER_R;
     for (const p of s.players) {
       if (p.state === 'dead') continue;
-      const pc = cellOf(p);
-      if (pc.c === c && pc.r === r) return true;
+      if (p.x + R > c && p.x - R < c + 1 && p.y + R > r && p.y - R < r + 1) return true;
     }
     return false;
   }
@@ -573,10 +563,7 @@
       }
     }
 
-    /* 8. 水位上升 */
-    updateRise(s, dt);
-
-    /* 9. 勝負 */
+    /* 8. 勝負 */
     checkOver(s);
 
     return s;
@@ -602,39 +589,6 @@
     p.trapTimer = 0;
     p.invuln = C.INVULN;
     s.events.push({ type: 'free', by: p.id, how });
-  }
-
-  function updateRise(s, dt) {
-    const startAt = Math.max(0, s.duration - C.RISE_LEAD);
-    if (s.time < startAt) return;
-    if (!s.rise.active) {
-      s.rise.active = true;
-      s.events.push({ type: 'rise-start' });
-    }
-    s.rise.timer -= dt;
-    if (s.rise.timer > 0) return;
-    s.rise.timer = C.RISE_INTERVAL;
-
-    while (s.rise.index < s.rise.cells.length) {
-      const [c, r] = s.rise.cells[s.rise.index++];
-      if (tileAt(s, c, r) === HARD) continue;
-      s.tiles[idx(s, c, r)] = HARD;
-      const b = bombAt(s, c, r);
-      if (b) {
-        s.bombs.splice(s.bombs.indexOf(b), 1);
-        const owner = s.players.find(p => p.id === b.owner);
-        if (owner) owner.bombsOut = Math.max(0, owner.bombsOut - 1);
-      }
-      const it = itemAt(s, c, r);
-      if (it) s.items.splice(s.items.indexOf(it), 1);
-      for (const p of s.players) {
-        if (p.state === 'dead') continue;
-        const pc = cellOf(p);
-        if (pc.c === c && pc.r === r) killPlayer(s, p, 'rise');
-      }
-      s.events.push({ type: 'rise', c, r });
-      break;
-    }
   }
 
   function checkOver(s) {
