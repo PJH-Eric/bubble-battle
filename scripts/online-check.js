@@ -269,7 +269,11 @@ setTimeout(() => {
   }, 850);
   setTimeout(() => a.send({ t: 'start' }), 1050);
   setTimeout(() => a.send({ t: 'chat', text: '哈囉' }), 1200);
-  setTimeout(() => a.send({ t: 'input', seq: 1, dx: 1, dy: 0, drop: false }), 4500);
+  const inputCt = { at: 0 };
+  setTimeout(() => {
+    inputCt.at = 1234.5;
+    a.send({ t: 'input', seq: 1, ct: inputCt.at, dx: 1, dy: 0, drop: false });
+  }, 4500);
 
   setTimeout(async () => {
     const welcome = seen.A.find(m => m.t === 'welcome');
@@ -291,6 +295,19 @@ setTimeout(() => {
     ok(!!full && full.tiles.length === full.cols * full.rows, '第一份快照含整張地圖');
     const moved = snapA[snapA.length - 1].players.find(p => p.id === welcome.id);
     ok(!!moved, '快照裡找得到自己');
+
+    /* 本地預測的對帳靠這兩個欄位算「這張快照有多舊」，少了就會變回亂跑 */
+    const acked = snapA.filter(s2 => s2.ackCt === inputCt.at);
+    ok(acked.length > 0, '快照會把前端輸入時戳原封不動送回來（ackCt）', 'ackCt=' + (snapA[snapA.length - 1] || {}).ackCt);
+    ok(acked.every(s2 => typeof s2.ackAge === 'number' && s2.ackAge >= 0 && s2.ackAge < 3),
+      '快照附上輸入在伺服器待了多久（ackAge，秒）', acked.map(s2 => s2.ackAge).join(','));
+    ok(acked.length > 1 && acked[acked.length - 1].ackAge > acked[0].ackAge,
+      'ackAge 會隨著快照變舊而變大');
+
+    /* 按右就要往右：確認伺服器真的照著方向鍵走 */
+    const spawnX = snapA[0].players.find(p => p.id === welcome.id).x;
+    ok(moved && moved.x - spawnX > 0.5 && Math.abs(moved.y - snapA[0].players.find(p => p.id === welcome.id).y) < 0.1,
+      '按住右鍵之後角色只往右走', moved && (spawnX + ' → ' + moved.x));
     ok(seen.D.some(m => m.t === 'closed'), '最後真人離開後觀戰者收到房間關閉通知');
     ok(presence && presence.gameId === 'bubble-battle', '在線人數 API 回傳正確遊戲識別');
     ok(presence && presence.online === 4 && presence.players === 2 && presence.spectators === 0 && presence.lobby === 2 && presence.rooms === 1,

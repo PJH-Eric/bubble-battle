@@ -17,7 +17,20 @@
       ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
       KeyW: [0, -1], KeyS: [0, 1], KeyA: [-1, 0], KeyD: [1, 0]
     };
+    const KEY_ALIASES = {
+      Up: 'ArrowUp', Down: 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight',
+      w: 'KeyW', W: 'KeyW', s: 'KeyS', S: 'KeyS', a: 'KeyA', A: 'KeyA',
+      d: 'KeyD', D: 'KeyD', ' ': 'Space', Spacebar: 'Space'
+    };
     const KEY_DROP = new Set(['Space', 'KeyJ', 'Enter', 'KeyK']);
+
+    function keyCode(e) {
+      const code = e.code;
+      if (KEY_DIR[code] || KEY_DROP.has(code)) return code;
+      const alias = KEY_ALIASES[e.key];
+      if (KEY_DIR[alias] || KEY_DROP.has(alias)) return alias;
+      return null;
+    }
 
     /** 正在打字（聊天室、暱稱欄）的時候，鍵盤不要被遊戲吃掉 */
     function typing(e) {
@@ -28,12 +41,16 @@
     }
 
     function keydown(e) {
-      if (e.repeat || typing(e)) return;
-      if (KEY_DIR[e.code]) { keys.add(e.code); e.preventDefault(); }
-      else if (KEY_DROP.has(e.code)) { dropQueued = true; e.preventDefault(); }
+      if (typing(e)) return;
+      const code = keyCode(e);
+      if (KEY_DIR[code]) { keys.add(code); e.preventDefault(); }
+      else if (KEY_DROP.has(code) && !e.repeat) { dropQueued = true; e.preventDefault(); }
       fireUnlock();
     }
-    function keyup(e) { keys.delete(e.code); }
+    function keyup(e) {
+      const code = keyCode(e);
+      if (code) keys.delete(code);
+    }
 
     function fireUnlock() { if (onUnlock) { const f = onUnlock; onUnlock = null; f(); } }
 
@@ -125,10 +142,12 @@
 
     function read() {
       let dx = 0, dy = 0;
-      for (const code of keys) {
-        const d = KEY_DIR[code];
-        if (d) { dx = d[0] || dx; dy = d[1] || dy; }
-      }
+      /* 四方向遊戲：只吐一個方向，而且以「最後按下、還按著的那一顆」為準。
+       * 這樣舊的方向鍵沒放開就按新方向也會馬上轉彎——真的在玩的時候都是這樣按的。
+       * Set 會照加入順序走，所以最後一顆就是最新按下的。 */
+      let latest = null;
+      for (const code of keys) if (KEY_DIR[code]) latest = code;
+      if (latest) { dx = KEY_DIR[latest][0]; dy = KEY_DIR[latest][1]; }
       if (stick.dx || stick.dy) { dx = stick.dx; dy = stick.dy; }
       else if (swipe.dx || swipe.dy) { dx = swipe.dx; dy = swipe.dy; }
       const drop = dropQueued;

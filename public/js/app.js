@@ -856,6 +856,9 @@
     net.reset();
     net.clearLocal();
     onlineBoardKey = '';
+    inputTimer = 0;
+    lastSentInput = { dx: 0, dy: 0 };
+    inputSeq = 0;
     input.setMode(store.control);
     input.clear();
     show('game');
@@ -967,6 +970,19 @@
 
   function onlineFrame(dt) {
     const mine = input.read();
+    /* 方向一變就馬上送，其他時候跟著伺服器 30Hz 補送。
+     * ct 是前端自己的時戳，伺服器會原封不動塞回快照，net.js 靠它算對帳要重播多久。 */
+    inputTimer -= dt;
+    const changed = mine.dx !== lastSentInput.dx || mine.dy !== lastSentInput.dy;
+    if (mine.drop || changed || inputTimer <= 0) {
+      inputTimer = 1 / 30;
+      lastSentInput = { dx: mine.dx, dy: mine.dy };
+      online.send({
+        t: 'input', seq: ++inputSeq, ct: performance.now(),
+        dx: mine.dx, dy: mine.dy, drop: mine.drop
+      });
+    }
+
     const view = net.frame(dt, mine);
     if (!view) return;
 
@@ -977,14 +993,6 @@
       renderer.setup(view, { field: (roomView && roomView.field) || store.field });
       $('#sum-map').textContent = view.mapName || '';
       $('#countdown').hidden = true;
-    }
-
-    inputTimer -= dt;
-    const changed = mine.dx !== lastSentInput.dx || mine.dy !== lastSentInput.dy;
-    if (mine.drop || changed || inputTimer <= 0) {
-      inputTimer = 0.05;
-      lastSentInput = { dx: mine.dx, dy: mine.dy };
-      online.send({ t: 'input', seq: ++inputSeq, dx: mine.dx, dy: mine.dy, drop: mine.drop });
     }
 
     renderer.draw(view, { meId });

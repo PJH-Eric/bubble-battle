@@ -3,23 +3,37 @@
  * 三件事：
  *   1. 其他玩家用「延遲 120 毫秒的插值」畫，看起來才會滑順
  *   2. 自己的角色用本地預測，按下去馬上動，不用等伺服器來回
- *   3. 收到快照後做對帳：把自己的位置校正回伺服器版本，再把還沒被確認的輸入重播一次
+ *   3. 收到快照後做對帳：把自己的位置校正回伺服器版本，再把「這張快照產生之後」的輸入重播一次
+ *
+ * 對帳為什麼看時間、不看序號：
+ * 伺服器不是把輸入當成一筆一筆的指令消化掉，而是「記住最後一次的方向，每個 tick 都照著走」。
+ * 所以序號沒有辦法對應到一段固定的模擬時間，只有時間可以。做法是前端每包輸入都帶自己的時戳，
+ * 伺服器把它連同「在我這邊放了多久」一起塞回快照，前端就能推回這張快照是自己時鐘的幾點產生的，
+ * 只重播那之後的輸入。（舊版拿前端每幀的計數器去比伺服器每包訊息的計數器，兩個數字快了三倍，
+ * pending 永遠清不掉，於是每張快照都重播上限 90 幀的舊輸入 —— 角色就會自己亂跑。）
  */
 (function (root) {
   'use strict';
   const Rules = root.Rules;
   const DELAY = 0.12;         /* 插值緩衝（秒） */
+  const SMOOTH = 0.12;        /* 校正誤差在畫面上收斂的時間（秒） */
+  const MAX_REPLAY = 0.5;     /* 最多重播這麼久的輸入，網路爆掉時才不會暴衝 */
+  const SNAP_DIST = 1.5;      /* 誤差超過這麼多格就直接跳過去（重生、被拉走） */
 
   function create() {
     let view = null;           /* 給 render.js 用的畫面狀態 */
     let buffer = [];           /* 最近的快照 */
     let meId = null;
-    let pending = [];          /* 還沒被伺服器確認的輸入 */
+    let pending = [];          /* 最近送出的輸入，每筆帶前端時戳：{ t, dx, dy, dt } */
     let seq = 0;
     let clock = 0;
+    let lagDown = 0.05;        /* 估出來的「伺服器→前端」單程延遲（秒） */
+    let smooth = { x: 0, y: 0, left: 0 };   /* 對帳誤差，只影響畫面不影響碰撞 */
 
     function reset() {
       view = null; buffer = []; pending = []; seq = 0; clock = 0;
+      lagDown = 0.05;
+      smooth = { x: 0, y: 0, left: 0 };
     }
 
     /** 收到伺服器快照 */
@@ -52,16 +66,38 @@
       buffer.push({ at, snap });
       while (buffer.length > 20) buffer.shift();
 
-      /* 對帳：自己的位置以伺服器為準，再重播還沒確認的輸入 */
+      /* 先更新延遲估計：這張快照在「前端時鐘」上是幾點產生的 */
+      if (typeof snap.ackCt === 'number' && snap.ackCt > 0) {
+        const rtt = at - snap.ackCt / 1000 - (snap.ackAge || 0);
+        if (rtt >= 0 && rtt < 2) lagDown = lagDown * 0.85 + Math.min(MAX_REPLAY, rtt / 2) * 0.15;
+      }
+
+      /* 對帳：自己的位置以伺服器為準，再把這張快照產生之後的輸入重播一遍 */
       const mine = snap.players.find(p => p.id === meId);
       if (mine) {
-        pending = pending.filter(inp => inp.seq > (snap.ackSeq || 0));
-        const local = ensureLocal(mine);
-        local.x = mine.x; local.y = mine.y;
-        local.speed = mine.speed;
-        local.glove = mine.glove;
-        local.state = mine.state;
-        for (const inp of pending) stepLocal(local, inp.dx, inp.dy, inp.dt);
+        const before = local ? { x: local.x, y: local.y } : null;
+        const me = ensureLocal(mine);
+        me.x = mine.x; me.y = mine.y;
+        me.speed = mine.speed;
+        me.glove = mine.glove;
+        me.state = mine.state;
+        me.dir = mine.dir || me.dir;
+
+        const since = at - Math.min(MAX_REPLAY, lagDown);
+        pending = pending.filter(inp => inp.t > since);
+        for (const inp of pending) stepLocal(me, inp.dx, inp.dy, inp.dt);
+
+        /* 剩下的落差不要硬跳，留給畫面在 SMOOTH 秒內慢慢收掉 */
+        if (before && me.state === 'alive') {
+          const ex = before.x - me.x, ey = before.y - me.y;
+          if (Math.abs(ex) + Math.abs(ey) <= SNAP_DIST) {
+            smooth = { x: ex, y: ey, left: SMOOTH };
+          } else {
+            smooth = { x: 0, y: 0, left: 0 };
+          }
+        } else {
+          smooth = { x: 0, y: 0, left: 0 };
+        }
       }
     }
 
@@ -100,6 +136,7 @@
     function frame(dt, input) {
       if (!view) return null;
       clock += dt;
+      if (smooth.left > 0) smooth.left = Math.max(0, smooth.left - dt);
 
       /* 1. 插值出「大家在 120ms 前的位置」 */
       const now = performance.now() / 1000;
@@ -144,15 +181,18 @@
         if (input && local.state === 'alive') {
           seq++;
           stepLocal(local, input.dx, input.dy, dt);
-          pending.push({ seq, dx: input.dx, dy: input.dy, dt });
-          if (pending.length > 90) pending.shift();
+          pending.push({ t: now, dx: input.dx, dy: input.dy, dt });
+          /* 只留得住的那一段：比最長重播時間再多一點點就好 */
+          const keepFrom = now - (MAX_REPLAY + 0.25);
+          while (pending.length && pending[0].t < keepFrom) pending.shift();
         }
+        const k = smooth.left > 0 ? smooth.left / SMOOTH : 0;
         const idx = view.players.findIndex(p => p.id === meId);
         if (idx >= 0) {
           const server = view.players[idx];
           view.players[idx] = Object.assign({}, server, {
-            x: local.state === 'alive' ? local.x : server.x,
-            y: local.state === 'alive' ? local.y : server.y,
+            x: local.state === 'alive' ? local.x + smooth.x * k : server.x,
+            y: local.state === 'alive' ? local.y + smooth.y * k : server.y,
             dir: local.dir,
             moving: !!(input && (input.dx || input.dy)) && local.state === 'alive'
           });
@@ -164,6 +204,7 @@
     return {
       reset, onSnapshot, frame,
       get seq() { return seq; },
+      get lag() { return lagDown; },
       get view() { return view; },
       get local() { return local; },
       clearLocal() { local = null; }
