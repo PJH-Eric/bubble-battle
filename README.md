@@ -99,16 +99,25 @@ lib/rooms.js              房間、席位、觀戰、準備、邀請、聊天
 public/js/themes/         角色與場景外觀，純資料，加一套＝加一個檔
 tests/verify.js           規則核心單元測試
 scripts/match-check.js    讓電腦互打，確認整局跑得完、四段難度有差
+scripts/netcode-check.js  線上走位：真的連線跑一輪，量速度與對帳
+scripts/play-check.js     線上互動：放水球、爆炸、地圖同步、出局
+scripts/lib/tiny-ws.js    測試用的最小 WebSocket 客戶端
 ```
 
 ## 測試
 
 ```bash
-npm test            # 規則核心單元測試（61 項）
-npm run test:match  # 電腦互打，檢查整局跑得完與四段難度差異
-npm run test:online # 房間邏輯與真的連上伺服器跑一輪
-npm run verify      # 三個一起跑
+npm test             # 規則核心單元測試（70 項）
+npm run test:match   # 電腦互打，檢查整局跑得完與四段難度差異
+npm run test:online  # 房間邏輯與真的連上伺服器跑一輪
+npm run test:netcode # 線上走位：真的 input.js + net.js + server.js 跑一輪
+npm run test:play    # 線上互動：放水球、爆炸、炸箱、地圖同步、出局、觀戰
+npm run verify       # 全部一起跑（netcode 會多跑一輪 80ms 延遲）
 ```
+
+`test:netcode` 可以用 `-- --lag=120` 模擬網路延遲。門檻是照實際會遇到的
+0～100ms 來回訂的；再往上，轉向超衝會開始主導手感（按了新方向，伺服器要等
+封包飛到才會轉），那是權威伺服器架構本來就有的，不列入必過項目。
 
 ## 部署
 
