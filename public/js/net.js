@@ -16,7 +16,7 @@
   'use strict';
   const Rules = root.Rules;
   const DELAY = 0.12;         /* 插值緩衝（秒） */
-  const SMOOTH = 0.12;        /* 校正誤差在畫面上收斂的時間（秒） */
+  const SMOOTH_TAU = 0.05;    /* 校正誤差在畫面上收斂的時間常數（秒） */
   const MAX_REPLAY = 0.5;     /* 最多重播這麼久的輸入，網路爆掉時才不會暴衝 */
   const SNAP_DIST = 1.5;      /* 誤差超過這麼多格就直接跳過去（重生、被拉走） */
 
@@ -28,12 +28,14 @@
     let seq = 0;
     let clock = 0;
     let lagDown = 0.05;        /* 估出來的「伺服器→前端」單程延遲（秒） */
-    let smooth = { x: 0, y: 0, left: 0 };   /* 對帳誤差，只影響畫面不影響碰撞 */
+    /* 畫面上還沒收掉的位移。存的是「現在畫面比 local 偏多少」，不是原始誤差，
+     * 這樣每次對帳都能算出讓畫面連續的新偏移，角色才不會在快照到達的瞬間往回彈。 */
+    let off = { x: 0, y: 0 };
 
     function reset() {
       view = null; buffer = []; pending = []; seq = 0; clock = 0;
       lagDown = 0.05;
-      smooth = { x: 0, y: 0, left: 0 };
+      off = { x: 0, y: 0 };
     }
 
     /** 收到伺服器快照 */
@@ -83,20 +85,22 @@
         me.state = mine.state;
         me.dir = mine.dir || me.dir;
 
-        const since = at - Math.min(MAX_REPLAY, lagDown);
+        /* 這張快照在前端時鐘上的產生時刻 = 現在 − 單程延遲 − 伺服器模擬本身落後的那一點 */
+        const age = Math.min(MAX_REPLAY, lagDown + (snap.simLag || 0));
+        const since = at - age;
         pending = pending.filter(inp => inp.t > since);
         for (const inp of pending) stepLocal(me, inp.dx, inp.dy, inp.dt);
 
-        /* 剩下的落差不要硬跳，留給畫面在 SMOOTH 秒內慢慢收掉 */
+        /* 校正不要硬跳：算出「維持畫面位置不變」所需的新偏移，再讓它慢慢收斂到 0。
+         * 注意要用 before + 目前偏移（也就是這一刻畫面上的位置）去減，
+         * 只用 before 的話畫面會在每張快照到達時彈一下，看起來就像走一走突然倒退。 */
         if (before && me.state === 'alive') {
-          const ex = before.x - me.x, ey = before.y - me.y;
-          if (Math.abs(ex) + Math.abs(ey) <= SNAP_DIST) {
-            smooth = { x: ex, y: ey, left: SMOOTH };
-          } else {
-            smooth = { x: 0, y: 0, left: 0 };
-          }
+          const ox = before.x + off.x - me.x;
+          const oy = before.y + off.y - me.y;
+          if (Math.abs(ox) + Math.abs(oy) <= SNAP_DIST) off = { x: ox, y: oy };
+          else off = { x: 0, y: 0 };
         } else {
-          smooth = { x: 0, y: 0, left: 0 };
+          off = { x: 0, y: 0 };
         }
       }
     }
@@ -136,7 +140,17 @@
     function frame(dt, input) {
       if (!view) return null;
       clock += dt;
-      if (smooth.left > 0) smooth.left = Math.max(0, smooth.left - dt);
+      /* 畫面偏移每一幀往 0 收斂。收斂速度要壓在角色速度以下，
+       * 不然偏移大的時候「往回收」會比「往前走」還快，畫面上就變成按著方向鍵卻在倒退。 */
+      if (off.x || off.y) {
+        const len = Math.hypot(off.x, off.y);
+        const speed = (local && local.speed) || Rules.C.BASE_SPEED;
+        const pull = Math.min(len - len * Math.exp(-dt / SMOOTH_TAU), speed * 0.8 * dt);
+        const k = pull > 0 ? Math.max(0, (len - pull) / len) : 1;
+        off.x *= k; off.y *= k;
+        if (Math.abs(off.x) < 1e-4) off.x = 0;
+        if (Math.abs(off.y) < 1e-4) off.y = 0;
+      }
 
       /* 1. 插值出「大家在 120ms 前的位置」 */
       const now = performance.now() / 1000;
@@ -186,13 +200,12 @@
           const keepFrom = now - (MAX_REPLAY + 0.25);
           while (pending.length && pending[0].t < keepFrom) pending.shift();
         }
-        const k = smooth.left > 0 ? smooth.left / SMOOTH : 0;
         const idx = view.players.findIndex(p => p.id === meId);
         if (idx >= 0) {
           const server = view.players[idx];
           view.players[idx] = Object.assign({}, server, {
-            x: local.state === 'alive' ? local.x + smooth.x * k : server.x,
-            y: local.state === 'alive' ? local.y + smooth.y * k : server.y,
+            x: local.state === 'alive' ? local.x + off.x : server.x,
+            y: local.state === 'alive' ? local.y + off.y : server.y,
             dir: local.dir,
             moving: !!(input && (input.dx || input.dy)) && local.state === 'alive'
           });

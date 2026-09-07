@@ -348,28 +348,56 @@ ws.attach(server, {
 
 /* ---------- 主迴圈 ---------- */
 
-const dt = 1 / TICK_HZ;
-let tickCount = 0;
+/* 模擬一定要跟著「真實經過的時間」走，不能假設 setInterval 準時。
+ * Windows 的計時器粒度大約 15.6 毫秒，setInterval(33) 實際上每 47 毫秒才響一次；
+ * 如果每響一次就固定推進 1/30 秒，遊戲世界只會跑到真實速度的七成——
+ * 線上角色比單機慢一截，而且前端的即時預測會一直被伺服器往回拉。
+ * 所以這裡用固定步長 + 真實時間累加器，跟前端單機迴圈同一套做法。 */
+const STEP = 1 / TICK_HZ;                      /* 每一步推進多少模擬時間 */
+const SNAP_EVERY_S = STEP * SNAPSHOT_EVERY;    /* 快照間隔（秒） */
+const MAX_CATCHUP = 8;                         /* 一次最多補幾步，忙不過來時不要雪崩 */
+const LOOP_MS = 10;                            /* 醒來的間隔要比一步短，才追得上 */
+
 const prevTiles = new Map();
+let stepAcc = 0, snapAcc = 0;
+let lastLoopAt = Date.now();
 
 setInterval(() => {
-  tickCount++;
-  const changed = hub.tick(dt);
-  for (const room of changed) {
-    const activeRoom = hub.get(room.id);
-    if (activeRoom) pushRoom(activeRoom);
-  }
-  const closed = flushClosedRooms();
-  if (changed.length || closed.length) pushLobby();
+  const at = Date.now();
+  let elapsed = (at - lastLoopAt) / 1000;
+  lastLoopAt = at;
+  if (elapsed > 0.5) elapsed = 0.5;            /* 休眠喚醒之類的大跳躍就跳過去 */
+  stepAcc += elapsed;
+  snapAcc += elapsed;
 
-  /* 把這個 tick 發生的事件先存起來，等下一次送快照時一起帶給前端（音效、提示用） */
-  for (const room of hub.rooms.values()) {
-    if (!room.match || !room.match.events.length) continue;
-    room._events = (room._events || []).concat(room.match.events);
-    if (room._events.length > 60) room._events = room._events.slice(-60);
+  const changed = new Set();
+  let steps = 0;
+  while (stepAcc >= STEP && steps < MAX_CATCHUP) {
+    stepAcc -= STEP;
+    steps++;
+    for (const room of hub.tick(STEP)) changed.add(room);
+
+    /* 把這一步發生的事件先存起來，等下一次送快照時一起帶給前端（音效、提示用） */
+    for (const room of hub.rooms.values()) {
+      if (!room.match || !room.match.events.length) continue;
+      room._events = (room._events || []).concat(room.match.events);
+      if (room._events.length > 60) room._events = room._events.slice(-60);
+    }
+  }
+  if (steps >= MAX_CATCHUP) stepAcc = 0;       /* 落後太多就認賠，不要越積越多 */
+
+  if (steps) {
+    for (const room of changed) {
+      const activeRoom = hub.get(room.id);
+      if (activeRoom) pushRoom(activeRoom);
+    }
+    const closed = flushClosedRooms();
+    if (changed.size || closed.length) pushLobby();
   }
 
-  if (tickCount % SNAPSHOT_EVERY !== 0) return;
+  if (snapAcc < SNAP_EVERY_S) return;
+  snapAcc -= SNAP_EVERY_S;
+  if (snapAcc > SNAP_EVERY_S) snapAcc = 0;     /* 落後就別追快照，補送也沒意義 */
 
   for (const room of hub.rooms.values()) {
     if (!room.match) { prevTiles.delete(room.id); continue; }
@@ -384,6 +412,9 @@ setInterval(() => {
       c.needFull = false;
       const snap = hub.snapshot(room, { viewerId: m.id, full });
       if (!snap) continue;
+      /* 快照畫的是「模擬時間」的世界，而模擬永遠落後牆上時鐘不到一步（累加器的餘數）。
+       * 把這個餘數一起送出去，前端對帳才知道這張快照實際上有多舊。 */
+      snap.simLag = +stepAcc.toFixed(4);
       if (!full && diff) snap.tileDiff = diff;
       if (room._events && room._events.length) snap.ev = room._events;
       snap.t = 'snap';
@@ -393,7 +424,7 @@ setInterval(() => {
     }
     room._events = [];
   }
-}, Math.round(1000 / TICK_HZ));
+}, LOOP_MS);
 
 /* 每 25 秒 ping 一次，避免中間的代理把閒置連線切掉 */
 setInterval(() => {
