@@ -207,6 +207,10 @@
       view.items = latest.items;
       view.time = latest.time;
       view.mode = latest.mode || view.mode;
+      view.pre = !!latest.pre;          /* 還在倒數：畫得出來，但不要動 */
+
+      /* 倒數期間按什麼伺服器都不收，本地也別自己跑，不然會先衝出去再被拉回來 */
+      if (view.pre) input = null;
 
       /* 1.5 自己放的水球先畫出來，不要等伺服器來回。
        *     放水球是全遊戲最需要即時回饋的動作，等一趟來回再加上插值緩衝就是明顯的「延遲」。

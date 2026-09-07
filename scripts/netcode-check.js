@@ -159,7 +159,10 @@ const rawA = tinyClient(PORT, onWire(m => {
   seenA.push(m);
   if (m.t === 'welcome') me.id = m.id;
   if (m.t === 'snap') {
-    started = true; initRef(m); client.onSnapshot(m, m.you);
+    /* 倒數期間也會送快照（讓畫面先出來），但那時候伺服器不收輸入，
+     * 腳本要等真的開打才起算 */
+    if (!m.pre) started = true;
+    initRef(m); client.onSnapshot(m, m.you);
     const sm = m.players.find(p => p.id === m.you);
     if (sm && t0) {
       const el2 = (performance.now() - t0) / 1000;

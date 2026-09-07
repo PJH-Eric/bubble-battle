@@ -33,7 +33,7 @@ const client = scope.Net.create();
 const me = { id: null };
 const rooms = [];               /* 收到的每一則 room 訊息 */
 const snaps = [];
-let started = false, firstSnapAt = 0;
+let started = false, firstPreAt = 0, firstPlayAt = 0;
 
 const laggy = s => HALF ? { send: o => setTimeout(() => s.send(o), HALF).unref(), end: () => s.end() } : s;
 const wire = fn => m => HALF ? setTimeout(() => fn(m), HALF).unref() : fn(m);
@@ -42,8 +42,10 @@ const raw = tinyClient(PORT, wire(m => {
   if (m.t === 'welcome') me.id = m.id;
   if (m.t === 'room') rooms.push({ at: performance.now(), room: m.room });
   if (m.t === 'snap') {
-    if (!started) { started = true; firstSnapAt = performance.now(); }
-    snaps.push({ at: performance.now(), snap: m });
+    const at = performance.now();
+    if (m.pre && !firstPreAt) firstPreAt = at;            /* 倒數期間就先把畫面送出來 */
+    if (!m.pre && !firstPlayAt) { firstPlayAt = at; started = true; }
+    snaps.push({ at: at, snap: m });
     client.onSnapshot(m, m.you);
   }
 }));
@@ -130,12 +132,37 @@ function finish() {
   ok(cd.length === 1,
     '倒數這三秒伺服器不會再推房間狀態 —— 所以倒數畫面必須由前端自己每一幀更新',
     cd.length + ' 則');
-  const cdToPlay = cd.length && firstSnapAt ? (firstSnapAt - cd[0].at) / 1000 : 0;
+  /* ---- 倒數的時候背景就要看得到場地 ---- */
+  const preSnaps = snaps.filter(x => x.snap.pre);
+  ok(preSnaps.length > 30, '倒數期間就一直有快照可以畫（背景不是空的）',
+    preSnaps.length + ' 份');
+  const preFull = preSnaps.find(x => x.snap.full);
+  ok(preFull && preFull.snap.tiles.length === preFull.snap.cols * preFull.snap.rows,
+    '倒數期間送的第一份快照就含整張地圖');
+  ok(preFull && preFull.snap.players.length === 4,
+    '倒數期間四個角色就站在起點上了', preFull && preFull.snap.players.length);
+
+  /* 倒數期間不管按什麼都不該動 */
+  if (preSnaps.length > 2) {
+    const a0 = preSnaps[0].snap.players, a1 = preSnaps[preSnaps.length - 1].snap.players;
+    let moved = 0;
+    for (const p of a1) {
+      const q = a0.find(x => x.id === p.id);
+      if (q && Math.hypot(p.x - q.x, p.y - q.y) > 0.01) moved++;
+    }
+    ok(moved === 0, '倒數期間沒有人會動（包括電腦）', moved + ' 個人動了');
+  }
+
+  const cdToPlay = cd.length && firstPlayAt ? (firstPlayAt - cd[0].at) / 1000 : 0;
   ok(cdToPlay > 2 && cdToPlay < 4.5, '倒數大約三秒之後對局才真的開始',
     cdToPlay.toFixed(2) + ' 秒');
+  ok(firstPreAt && firstPlayAt && firstPreAt < firstPlayAt,
+    '畫面比對局早出現（先看到場地，才開始能動）',
+    firstPreAt && firstPlayAt ? ((firstPlayAt - firstPreAt) / 1000).toFixed(2) + ' 秒前' : '沒有');
 
   /* ---- 對局：電腦有在玩嗎 ---- */
-  ok(snaps.length > 60, '對局期間快照一直有進來', snaps.length + ' 份');
+  ok(snaps.filter(x => !x.snap.pre).length > 60, '對局期間快照一直有進來',
+    snaps.filter(x => !x.snap.pre).length + ' 份');
   const lastSnap = snaps[snaps.length - 1].snap;
   ok(lastSnap.players.length === 4, '場上是一個真人加三個電腦', lastSnap.players.length);
   ok(aiMoved === 1, '電腦對手真的會走動');

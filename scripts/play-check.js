@@ -36,7 +36,7 @@ const a = tinyClient(PORT, m => {
   seenA.push(m);
   if (m.t === 'welcome') me.id = m.id;
   if (m.t !== 'snap') return;
-  started = true;
+  if (!m.pre) started = true;      /* 倒數期間的快照只是先讓畫面出來，還不能操作 */
   if (m.full) tilesA = m.tiles.slice();
   else if (m.tileDiff && tilesA) {
     for (let i = 0; i < m.tileDiff.length; i += 2) tilesA[m.tileDiff[i]] = m.tileDiff[i + 1];

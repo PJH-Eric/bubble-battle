@@ -900,6 +900,9 @@
     net.onSnapshot(msg, msg.you);
     $('#watch-badge').hidden = msg.role !== 'spectator';
     if (msg.ev && msg.ev.length) handleEvents(msg.ev);
+    if (msg.pre && msg.countdownMs != null && !onlineCountdownAt) {
+      onlineCountdownAt = performance.now() + msg.countdownMs;
+    }
     if (msg.matchPhase && msg.matchPhase !== 'playing') {
       onlineCountdownAt = 0;
       $('#countdown').hidden = true;
@@ -998,11 +1001,14 @@
   function onlineFrame(dt) {
     tickOnlineCountdown();
     const mine = input.read();
+    /* 倒數期間場地已經畫出來了，但還不能動——伺服器不收輸入，這裡也就不用送 */
+    const pre = !!(net.view && net.view.pre);
+
     /* 方向一變就馬上送，其他時候跟著伺服器 30Hz 補送。
      * ct 是前端自己的時戳，伺服器會原封不動塞回快照，net.js 靠它算對帳要重播多久。 */
     inputTimer -= dt;
     const changed = mine.dx !== lastSentInput.dx || mine.dy !== lastSentInput.dy;
-    if (mine.drop || changed || inputTimer <= 0) {
+    if (!pre && (mine.drop || changed || inputTimer <= 0)) {
       inputTimer = 1 / 30;
       lastSentInput = { dx: mine.dx, dy: mine.dy };
       online.send({
