@@ -15,7 +15,10 @@
 (function (root) {
   'use strict';
   const Rules = root.Rules;
-  const DELAY = 0.12;         /* 插值緩衝（秒） */
+  const DELAY = 0.08;         /* 插值緩衝（秒）。要大於一個快照間隔（30Hz = 33ms）才不會抖，
+                               * 但每多一毫秒，別人的角色與水球就晚一毫秒出現。 */
+  const EMPTY = (root.Maps && root.Maps.EMPTY) || 0;
+  const GHOST_TTL = 1.2;      /* 自己預測的水球最多撐這麼久，等不到伺服器認帳就收掉 */
   const SMOOTH_TAU = 0.05;    /* 校正誤差在畫面上收斂的時間常數（秒） */
   const MAX_REPLAY = 0.5;     /* 最多重播這麼久的輸入，網路爆掉時才不會暴衝 */
   const SNAP_DIST = 1.5;      /* 誤差超過這麼多格就直接跳過去（重生、被拉走） */
@@ -31,11 +34,14 @@
     /* 畫面上還沒收掉的位移。存的是「現在畫面比 local 偏多少」，不是原始誤差，
      * 這樣每次對帳都能算出讓畫面連續的新偏移，角色才不會在快照到達的瞬間往回彈。 */
     let off = { x: 0, y: 0 };
+    let ghosts = [];           /* 自己剛放、伺服器還沒回報的水球 */
+    let justPlaced = false;    /* 這一幀有沒有預測放成功，給音效用（讀了就清掉） */
 
     function reset() {
       view = null; buffer = []; pending = []; seq = 0; clock = 0;
       lagDown = 0.05;
       off = { x: 0, y: 0 };
+      ghosts = [];
     }
 
     /** 收到伺服器快照 */
@@ -116,6 +122,18 @@
       return local;
     }
 
+    /** 放得下才預測：規則跟伺服器的 placeBomb 一致，才不會畫出一顆根本沒放成功的球 */
+    function addGhost(now) {
+      const c = Math.floor(local.x), r = Math.floor(local.y);
+      if (!view.tiles || view.tiles[r * view.cols + c] !== EMPTY) return;
+      if (view.bombs.some(b => b.c === c && b.r === r)) return;
+      if (ghosts.some(g => g.c === c && g.r === r)) return;
+      const out = view.bombs.filter(b => b.owner === meId).length + ghosts.length;
+      if (out >= (local.bombMax || 1)) return;
+      ghosts.push({ c: c, r: r, at: now, power: local.power || 1 });
+      justPlaced = true;
+    }
+
     /** 用同一套規則核心走一步（線上與單機手感一致） */
     function stepLocal(p, dx, dy, dt) {
       if (!view || p.state !== 'alive') return;
@@ -190,6 +208,22 @@
       view.time = latest.time;
       view.mode = latest.mode || view.mode;
 
+      /* 1.5 自己放的水球先畫出來，不要等伺服器來回。
+       *     放水球是全遊戲最需要即時回饋的動作，等一趟來回再加上插值緩衝就是明顯的「延遲」。
+       *     等伺服器的水球出現在同一格，幽靈就交棒退場，畫面上看不出接縫。 */
+      if (meId && local) {
+        if (input && input.drop && local.state === 'alive') addGhost(now);
+        ghosts = ghosts.filter(g => now - g.at < GHOST_TTL
+          && !view.bombs.some(b => b.c === g.c && b.r === g.r));
+        for (const g of ghosts) {
+          view.bombs.push({
+            id: 'ghost:' + g.c + ':' + g.r, owner: meId,
+            c: g.c, r: g.r, px: g.c + 0.5, py: g.r + 0.5,
+            fuse: Math.max(0, Rules.C.FUSE - (now - g.at)), power: g.power
+          });
+        }
+      }
+
       /* 2. 自己的角色改用本地預測的位置，按下去就會動 */
       if (meId && local) {
         if (input && local.state === 'alive') {
@@ -218,9 +252,11 @@
       reset, onSnapshot, frame,
       get seq() { return seq; },
       get lag() { return lagDown; },
+      /* 讀一次就清掉：讓 app.js 在預測放球的當下就播音效，不用等伺服器來回 */
+      get placedBomb() { const v = justPlaced; justPlaced = false; return v; },
       get view() { return view; },
       get local() { return local; },
-      clearLocal() { local = null; }
+      clearLocal() { local = null; ghosts = []; }
     };
   }
 

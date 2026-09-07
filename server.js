@@ -19,7 +19,9 @@ const Rules = require('./public/js/rules.js');
 const PORT = Number(process.env.PORT) || 3050;
 const ROOT = path.join(__dirname, 'public');
 const TICK_HZ = 30;
-const SNAPSHOT_EVERY = 2;          /* 每 2 個 tick 送一次快照 → 15Hz */
+const SNAPSHOT_EVERY = 1;          /* 每個 tick 都送快照 → 30Hz。
+                                    * 15Hz 的話前端要留 120ms 插值緩衝才不會抖，
+                                    * 別人的角色與水球就整整慢一拍，玩起來就是「延遲」。 */
 
 /* ---------- 靜態檔案 ---------- */
 

@@ -101,6 +101,7 @@ tests/verify.js           規則核心單元測試
 scripts/match-check.js    讓電腦互打，確認整局跑得完、四段難度有差
 scripts/netcode-check.js  線上走位：真的連線跑一輪，量速度與對帳
 scripts/play-check.js     線上互動：放水球、爆炸、地圖同步、出局
+scripts/room-ai-check.js  開房間加電腦對手玩一輪：倒數、電腦行為、操作延遲
 scripts/lib/tiny-ws.js    測試用的最小 WebSocket 客戶端
 ```
 
@@ -112,6 +113,7 @@ npm run test:match   # 電腦互打，檢查整局跑得完與四段難度差異
 npm run test:online  # 房間邏輯與真的連上伺服器跑一輪
 npm run test:netcode # 線上走位：真的 input.js + net.js + server.js 跑一輪
 npm run test:play    # 線上互動：放水球、爆炸、炸箱、地圖同步、出局、觀戰
+npm run test:room-ai # 開房間加三個電腦對手玩一輪：倒數、電腦會動會放球、操作延遲
 npm run verify       # 全部一起跑（netcode 會多跑一輪 80ms 延遲）
 ```
 

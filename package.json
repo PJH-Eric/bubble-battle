@@ -11,7 +11,8 @@
     "test:online": "node scripts/online-check.js",
     "test:netcode": "node scripts/netcode-check.js",
     "test:play": "node scripts/play-check.js",
-    "verify": "node tests/verify.js && node scripts/match-check.js && node scripts/online-check.js && node scripts/netcode-check.js && node scripts/netcode-check.js --lag=80 && node scripts/play-check.js",
+    "test:room-ai": "node scripts/room-ai-check.js",
+    "verify": "node tests/verify.js && node scripts/match-check.js && node scripts/online-check.js && node scripts/netcode-check.js && node scripts/netcode-check.js --lag=80 && node scripts/play-check.js && node scripts/room-ai-check.js",
     "inject": "node scripts/inject-server-url.js"
   },
   "engines": {

@@ -264,7 +264,8 @@
   function handleEvents(events) {
     for (const e of events) {
       switch (e.type) {
-        case 'bomb': audio.play('place'); break;
+        /* 線上自己放的球，音效在預測放下去的當下就播過了，這裡別再播一次（會晚一個來回） */
+        case 'bomb': if (!(mode === 'online' && e.by === meId)) audio.play('place'); break;
         case 'explode': audio.play('explode'); break;
         case 'box': audio.play('box'); break;
         case 'item': if (e.by === meId) { audio.play('item'); flash(itemText(e.item)); } break;
@@ -712,8 +713,14 @@
     chatDock(true, true);
     if (!$('#screen-game').classList.contains('active')) startOnlineMatch();
     if (view.phase === 'countdown') {
+      /* 只記下「幾點會數完」，數字交給每一幀自己跑。
+       * 倒數這三秒伺服器不會再推房間狀態，靠訊息更新的話畫面會卡在 3 不動。 */
+      onlineCountdownAt = performance.now() + (view.countdownMs || 0);
       $('#countdown').hidden = false;
-      $('#countdown').firstElementChild.textContent = String(Math.max(1, Math.ceil(view.countdownMs / 1000)));
+      paintCountdown((view.countdownMs || 0) / 1000);
+    } else if (view.phase !== 'playing') {
+      onlineCountdownAt = 0;
+      $('#countdown').hidden = true;
     }
     if (first) show('game');
   }
@@ -850,6 +857,25 @@
 
   /* ---------- 線上對局 ---------- */
 
+  let onlineCountdownAt = 0;
+
+  function paintCountdown(left) {
+    $('#countdown').firstElementChild.textContent = left > 0 ? String(Math.ceil(left)) : '開始！';
+  }
+
+  /** 線上倒數：每一幀自己數，數完（含「開始！」那一下）才收起來 */
+  function tickOnlineCountdown() {
+    if (!onlineCountdownAt) return;
+    const left = (onlineCountdownAt - performance.now()) / 1000;
+    if (left <= -0.4) {
+      onlineCountdownAt = 0;
+      $('#countdown').hidden = true;
+      return;
+    }
+    $('#countdown').hidden = false;
+    paintCountdown(left);
+  }
+
   function startOnlineMatch() {
     mode = 'online';
     phase = 'playing';
@@ -875,6 +901,7 @@
     $('#watch-badge').hidden = msg.role !== 'spectator';
     if (msg.ev && msg.ev.length) handleEvents(msg.ev);
     if (msg.matchPhase && msg.matchPhase !== 'playing') {
+      onlineCountdownAt = 0;
       $('#countdown').hidden = true;
       showOnlineResult(msg);
     }
@@ -969,6 +996,7 @@
   }
 
   function onlineFrame(dt) {
+    tickOnlineCountdown();
     const mine = input.read();
     /* 方向一變就馬上送，其他時候跟著伺服器 30Hz 補送。
      * ct 是前端自己的時戳，伺服器會原封不動塞回快照，net.js 靠它算對帳要重播多久。 */
@@ -984,6 +1012,7 @@
     }
 
     const view = net.frame(dt, mine);
+    if (net.placedBomb) audio.play('place');
     if (!view) return;
 
     const key = view.cols + 'x' + view.rows + ':' + view.mapName;
@@ -992,7 +1021,6 @@
       if (!renderer) renderer = Render.create($('#board'));
       renderer.setup(view, { field: (roomView && roomView.field) || store.field });
       $('#sum-map').textContent = view.mapName || '';
-      $('#countdown').hidden = true;
     }
 
     renderer.draw(view, { meId });
